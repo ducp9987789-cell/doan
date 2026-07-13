@@ -1,0 +1,361 @@
+ tuyến tích hợp chatbot AI hỗ trợ bán hàng
+
+Dưới đây là một bản đề cương đồ án tốt nghiệp phù hợp với stack bạn đã chọn: Vue, Python, FastAPI, MongoDB, chatbot AI RAG/LLM (OpenAI hoặc Gemini), Chroma và Docker.
+
+---
+
+## 1. Tên đề tài
+
+Hệ thống cửa hàng thời trang trực tuyến tích hợp chatbot AI hỗ trợ khách hàng và quản lý bán hàng
+
+---
+
+## 2. Mục tiêu đề tài
+
+### Mục tiêu chung
+Xây dựng một hệ thống thương mại điện tử đơn giản nhưng đầy đủ chức năng cho cửa hàng thời trang, trong đó:
+- khách hàng có thể xem sản phẩm, tìm kiếm và đặt hàng
+- chatbot AI có thể hỗ trợ tư vấn sản phẩm, trả lời câu hỏi và gợi ý sản phẩm
+- admin có thể quản lý sản phẩm, đơn hàng và nội dung chatbot
+
+### Mục tiêu cụ thể
+- Thiết kế và triển khai hệ thống bán hàng thời trang trực tuyến
+- Tích hợp chatbot AI để hỗ trợ khách hàng 24/7
+- Sử dụng RAG + LLM để chatbot trả lời dựa trên dữ liệu sản phẩm và chính sách cửa hàng
+- Xây dựng hệ thống có thể chạy trên Docker để dễ triển khai và demo
+
+---
+
+## 3. Ý tưởng hệ thống
+
+Hệ thống gồm 3 nhóm người dùng chính:
+
+1. Khách hàng
+   - xem sản phẩm
+   - tìm kiếm theo danh mục, giá, màu sắc, kích cỡ
+   - hỏi chatbot về sản phẩm
+   - đặt hàng
+
+2. Admin
+   - quản lý sản phẩm
+   - quản lý danh mục
+   - quản lý đơn hàng
+   - quản lý thông tin cửa hàng và chatbot
+
+3. Chatbot AI
+   - trả lời câu hỏi về sản phẩm
+   - gợi ý sản phẩm phù hợp
+   - hỗ trợ tư vấn thời trang
+   - có thể trả lời câu hỏi về giá, khuyến mãi, giao hàng
+
+---
+
+## 4. Mục tiêu chức năng
+
+### 4.1 Chức năng cho khách hàng
+- Đăng ký / đăng nhập
+- Xem danh sách sản phẩm
+- Tìm kiếm và lọc sản phẩm
+- Xem chi tiết sản phẩm
+- Thêm sản phẩm vào giỏ hàng
+- Đặt hàng
+- Theo dõi trạng thái đơn hàng
+- Chat với chatbot AI
+
+### 4.2 Chức năng cho admin
+- Quản lý danh mục sản phẩm
+- Quản lý sản phẩm
+- Quản lý đơn hàng
+- Quản lý khuyến mãi
+- Quản lý thông tin cửa hàng
+- Quản lý dữ liệu cho chatbot
+
+### 4.3 Chức năng cho chatbot AI
+- Trả lời câu hỏi về sản phẩm
+- Gợi ý sản phẩm theo nhu cầu người dùng
+- Trả lời câu hỏi về giá, màu sắc, kích cỡ
+- Hỗ trợ tìm sản phẩm theo từ khóa
+- Có thể dùng RAG để truy xuất thông tin từ dữ liệu sản phẩm và FAQ
+
+---
+
+## 5. Công nghệ sử dụng
+
+### Frontend
+- Vue 3
+- Vue Router
+- Pinia
+- Tailwind CSS hoặc Vuetify
+- Axios để gọi API
+
+### Backend
+- Python
+- FastAPI
+- Pydantic
+- JWT/Auth
+
+### Database
+- MongoDB cho dữ liệu chính: người dùng, sản phẩm, đơn hàng, giỏ hàng
+
+### Vector Database
+- Chroma để lưu embeddings của dữ liệu sản phẩm, FAQ, chính sách
+
+### AI
+- LLM: OpenAI hoặc Gemini
+- Embedding model: text-embedding-3-small hoặc tương đương
+- RAG: truy xuất dữ liệu từ Chroma trước khi gọi LLM
+
+### DevOps / triển khai
+- Docker
+- Docker Compose
+
+---
+
+## 6. Kiến trúc hệ thống
+
+### 6.1 Kiến trúc tổng thể
+Hệ thống được xây dựng theo mô hình client – server – AI service:
+
+- Frontend Vue giao tiếp với Backend FastAPI
+- Backend lưu dữ liệu vào MongoDB
+- Backend xử lý truy vấn chatbot bằng cách:
+  1. lấy ngữ cảnh từ Chroma
+  2. gửi câu hỏi + ngữ cảnh tới LLM
+  3. trả lời cho người dùng
+
+### 6.2 Luồng hoạt động chính
+
+#### Luồng khách hàng mua hàng
+1. Khách hàng vào trang sản phẩm
+2. Xem chi tiết sản phẩm
+3. Thêm vào giỏ hàng
+4. Đặt hàng
+5. Hệ thống lưu đơn hàng vào MongoDB
+
+#### Luồng chatbot
+1. Người dùng nhập câu hỏi
+2. Backend chuyển câu hỏi sang embedding
+3. Truy vấn Chroma lấy đoạn ngữ cảnh liên quan
+4. Gửi câu hỏi + ngữ cảnh vào LLM
+5. Trả về câu trả lời tự nhiên
+
+---
+
+## 7. Cấu trúc thư mục đề xuất
+
+Một cấu trúc thư mục phù hợp cho đồ án như sau:
+
+```text
+fashion-store-ai/
+├── docker/
+│   ├── Dockerfile.backend
+│   ├── Dockerfile.frontend
+│   └── docker-compose.yml
+├── backend/
+│   ├── app/
+│   │   ├── api/
+│   │   │   ├── v1/
+│   │   │   │   ├── auth.py
+│   │   │   │   ├── products.py
+│   │   │   │   ├── orders.py
+│   │   │   │   ├── chat.py
+│   │   │   │   └── admin.py
+│   │   ├── core/
+│   │   │   ├── config.py
+│   │   │   ├── security.py
+│   │   │   └── logging.py
+│   │   ├── models/
+│   │   │   ├── user.py
+│   │   │   ├── product.py
+│   │   │   ├── order.py
+│   │   │   └── chat.py
+│   │   ├── schemas/
+│   │   │   ├── user.py
+│   │   │   ├── product.py
+│   │   │   ├── order.py
+│   │   │   └── chat.py
+│   │   ├── services/
+│   │   │   ├── product_service.py
+│   │   │   ├── order_service.py
+│   │   │   ├── chat_service.py
+│   │   │   └── rag_service.py
+│   │   ├── db/
+│   │   │   ├── mongodb.py
+│   │   │   └── chroma.py
+│   │   └── main.py
+│   ├── requirements.txt
+│   └── .env
+├── frontend/
+│   ├── src/
+│   │   ├── assets/
+│   │   ├── components/
+│   │   ├── pages/
+│   │   │   ├── HomePage.vue
+│   │   │   ├── ProductPage.vue
+│   │   │   ├── ProductDetail.vue
+│   │   │   ├── CartPage.vue
+│   │   │   ├── CheckoutPage.vue
+│   │   │   ├── LoginPage.vue
+│   │   │   └── AdminPage.vue
+│   │   ├── stores/
+│   │   ├── router/
+│   │   ├── services/
+│   │   └── App.vue
+│   ├── package.json
+│   └── vite.config.js
+├── docs/
+│   ├── requirements.md
+│   ├── database.md
+│   └── api.md
+└── README.md
+```
+
+---
+
+## 8. Cấu trúc dữ liệu đề xuất
+
+### 8.1 MongoDB collections
+- users
+- products
+- categories
+- orders
+- carts
+- promotions
+- chat_logs
+
+### 8.2 Ví dụ dữ liệu sản phẩm
+- tên sản phẩm
+- mô tả
+- giá
+- màu sắc
+- kích cỡ
+- danh mục
+- ảnh
+- tồn kho
+- khuyến mãi
+
+### 8.3 Dữ liệu cho chatbot
+- FAQ
+- thông tin sản phẩm
+- chính sách vận chuyển
+- chính sách đổi trả
+- thông tin khuyến mãi
+
+---
+
+## 9. Giao diện màn hình đề xuất
+
+### 9.1 Màn hình khách hàng
+- Trang chủ
+  - banner quảng cáo
+  - sản phẩm nổi bật
+  - danh mục thời trang
+  - khuyến mãi
+
+- Trang sản phẩm
+  - danh sách sản phẩm
+  - bộ lọc theo giá, màu sắc, kích cỡ, danh mục
+
+- Trang chi tiết sản phẩm
+  - hình ảnh
+  - giá
+  - mô tả
+  - size
+  - màu sắc
+  - nút thêm vào giỏ
+
+- Giỏ hàng
+  - danh sách sản phẩm đã chọn
+  - cập nhật số lượng
+  - tính tổng tiền
+
+- Thanh toán / đặt hàng
+  - nhập thông tin giao hàng
+  - chọn phương thức thanh toán
+  - xác nhận đơn
+
+- Chatbot
+  - khung chat
+  - gợi ý sản phẩm
+  - câu hỏi thường gặp
+
+### 9.2 Màn hình admin
+- Dashboard
+- Quản lý sản phẩm
+- Quản lý đơn hàng
+- Quản lý khuyến mãi
+- Quản lý chatbot/FAQ
+- Quản lý người dùng
+
+---
+
+## 10. Các tính năng AI đề xuất
+
+### Chatbot thông minh
+- Trả lời câu hỏi chung về cửa hàng
+- Gợi ý sản phẩm theo nhu cầu
+- Hỏi về tồn kho, giá và khuyến mãi
+- Hỗ trợ người dùng trong quá trình mua hàng
+
+### RAG workflow
+1. Người dùng hỏi chatbot
+2. Hệ thống tìm kiếm dữ liệu liên quan trong Chroma
+3. LLM tạo câu trả lời dựa trên dữ liệu tìm được
+4. Trả về kết quả cho người dùng
+
+---
+
+## 11. Phân chia công việc thực hiện
+
+### Giai đoạn 1: Nghiên cứu và phân tích
+- xác định yêu cầu
+- thiết kế database
+- xây dựng sơ đồ use case
+
+### Giai đoạn 2: Xây dựng backend
+- API đăng nhập, sản phẩm, đơn hàng, chat
+
+### Giai đoạn 3: Xây dựng frontend
+- giao diện người dùng và admin
+
+### Giai đoạn 4: Tích hợp AI
+- embedding
+- Chroma
+- LLM OpenAI/Gemini
+- RAG
+
+### Giai đoạn 5: Triển khai
+- Docker Compose
+- chạy thử toàn bộ hệ thống
+
+---
+
+## 12. Kết quả mong đợi
+
+Sau khi hoàn thành, đồ án sẽ có:
+- một hệ thống bán hàng thời trang trực tuyến có thể chạy locally
+- chatbot AI hỗ trợ khách hàng
+- giao diện rõ ràng, dễ demo
+- kiến trúc rõ ràng và phù hợp với thực tế
+
+---
+
+## 13. Gợi ý tên đề tài ngắn gọn hơn
+
+Nếu bạn muốn chọn tên ngắn và chuyên nghiệp hơn, có thể dùng các tên sau:
+- Hệ thống cửa hàng thời trang trực tuyến tích hợp chatbot AI
+- E-commerce thời trang thông minh bằng AI
+- Chatbot bán hàng cho cửa hàng thời trang
+- Hệ thống thương mại điện tử thời trang hỗ trợ khách hàng bằng RAG/LLM
+
+---
+
+Nếu bạn muốn, tôi có thể viết tiếp cho bạn một bản “đề cương đồ án theo mẫu báo cáo” gồm:
+- Lời mở đầu
+- Chương 1: Tổng quan
+- Chương 2: Cơ sở lý thuyết
+- Chương 3: Thiết kế hệ thống
+- Chương 4: Triển khai
+- Chương 5: Kết luận và hướng phát triển
+
+Ngoài ra, tôi có thể viết luôn cho bạn một “bản mô tả đồ án đủ để nộp cho giảng viên” theo phong cách chuyên nghiệp hơn.
