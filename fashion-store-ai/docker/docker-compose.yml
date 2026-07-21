@@ -1,0 +1,40 @@
+services:
+  mongo:
+    image: mongo:7
+    container_name: fashion-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  backend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.backend
+    container_name: fashion-backend
+    env_file:
+      - ../backend/.env
+    environment:
+      MONGODB_URI: mongodb://mongo:27017
+      CHROMA_PERSIST_DIR: /app/data/chroma
+      CORS_ORIGINS: http://localhost:3000,http://localhost:5173
+    volumes:
+      - chroma_data:/app/data/chroma
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mongo
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.frontend
+    container_name: fashion-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  mongo_data:
+  chroma_data:
