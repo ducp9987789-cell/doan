@@ -12,23 +12,32 @@ Online fashion store with Vue frontend, FastAPI backend, MongoDB, and a RAG chat
 - AI: OpenAI or Gemini (RAG), with local demo fallback when API keys are missing
 - Deploy: Docker Compose
 
-## AI-core layout
+## Project Structure
 
 ```text
-backend/ai-core/
-├── agents/          # ShoppingAgent and base agent
-├── llm/             # OpenAI/Gemini providers + embeddings
-├── memory/          # Chat memory + Chroma vector store
-├── prompts/         # System and shopping prompts
-├── tool/            # Knowledge retriever/indexer, product search
-├── tests/           # Unit tests for AI-core
-└── bootstrap.py     # Wire AI-core into FastAPI
+fashion-store-ai/
+├── backend/
+│   ├── .env                 # Cấu hình môi trường Backend
+│   ├── .env.example         # Mẫu cấu hình Backend (FastAPI, MongoDB, AI, CORS)
+│   ├── Dockerfile           # Dockerfile Backend
+│   ├── requirements.txt     # Python dependencies
+│   ├── ai-core/             # Module AI & RAG
+│   └── app/                 # FastAPI routes & services
+├── frontend/
+│   ├── .env                 # Cấu hình môi trường Frontend
+│   ├── .env.example         # Mẫu cấu hình Frontend (Vite port, API proxy)
+│   ├── Dockerfile           # Dockerfile Frontend
+│   ├── nginx.conf           # Nginx reverse proxy
+│   ├── package.json         # Node dependencies
+│   └── src/                 # Vue 3 source code
+├── docker/
+│   └── ...                  # Cấu hình phụ trợ Docker
+└── docker-compose.yml       # Khởi chạy fullstack toàn bộ hệ thống
 ```
 
 ## Quick start (Docker)
 
 ```bash
-cd docker
 docker compose up --build
 ```
 
@@ -38,50 +47,67 @@ docker compose up --build
 
 ## Local development
 
-### Backend
+### 1. Backend
 
 ```bash
 cd backend
+# Copy file cấu hình môi trường
+cp .env.example .env
+
+# Cài đặt môi trường ảo Python
 python -m venv .venv
-source .venv/bin/activate
+# Windows: .venv\Scripts\activate
+# Linux/macOS: source .venv/bin/activate
+
 pip install -r requirements.txt
-# start MongoDB locally, then:
+
+# Khởi động backend
 uvicorn app.main:app --reload --port 8000
 ```
 
-### Frontend
+### 2. Frontend
 
 ```bash
 cd frontend
+# Copy file cấu hình môi trường
+cp .env.example .env
+
+# Cài đặt thư viện & chạy dev server
 npm install
 npm run dev
 ```
 
-Frontend runs at http://localhost:5173 and proxies `/api` to the backend.
+Frontend chạy tại http://localhost:5173 và proxy các request `/api` sang backend (cổng 8000).
 
-## Demo accounts
+## Demo accounts & Seed data
 
-- Admin: `admin@fashionstore.local` / `Admin@123`
-- Customer: `customer@fashionstore.local` / `Customer@123`
+- **Admin (Quản trị)**: `Admin@fashion.vn` / `Admin@123`
+- **Khách hàng (Tenant/Customer)**: `Tenant@fashion.vn` / `Tenant@123`
 
-Promotion codes: `WELCOME10`, `FREESHIP`
+Chạy script tạo lại toàn bộ dữ liệu mẫu bất kỳ lúc nào:
+```bash
+# Windows PowerShell:
+./seed_demo.ps1
+
+# Linux / macOS / Bash:
+./seed_demo.sh
+
+# Hoặc qua Docker:
+docker compose exec backend python seed_demo.py --reset
+```
+
+Promotion codes: `WELCOME10`, `FREESHIP`, `FASHION2026`, `VIP50`
 
 ## AI configuration
 
-Edit `backend/.env`:
+Chỉnh sửa trong `backend/.env`:
 
 ```env
 LLM_PROVIDER=openai
 OPENAI_API_KEY=your_key
-# or
+# hoặc
 LLM_PROVIDER=gemini
 GEMINI_API_KEY=your_key
 ```
 
-Without API keys the chatbot still works in demo mode using Chroma retrieval + rule-based answers.
-
-## Main features
-
-- Customer: register/login, browse/filter products, cart, checkout, order tracking, AI chat
-- Admin: dashboard, products, orders, promotions, FAQ/store knowledge, chatbot reindex
-- RAG flow: question → embedding → Chroma context → LLM answer → product suggestions
+Nếu không có API key, chatbot vẫn hoạt động ở chế độ demo (fallback tìm kiếm sản phẩm & thông tin qua ChromaDB).
