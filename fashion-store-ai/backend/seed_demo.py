@@ -281,7 +281,7 @@ async def run_seed(reset_db: bool = False):
     # 1. Kết nối MongoDB & AI-Core
     await connect_to_mongo()
     db = get_database()
-    await init_ai_core()
+    init_ai_core()
 
     if reset_db:
         print("\n⚠️  Đang xóa dữ liệu cũ theo yêu cầu (--reset)...")

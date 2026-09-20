@@ -16,13 +16,19 @@ export const authApi = {
 export const productApi = {
   list: (params) => api.get('/products', { params }),
   get: (id) => api.get(`/products/${id}`),
-  categories: () => api.get('/categories'),
+  categories: (params) => api.get('/categories', { params }),
+  createCategory: (payload) => api.post('/categories', payload),
+  updateCategory: (id, payload) => api.patch(`/categories/${id}`, payload),
+  deleteCategory: (id) => api.delete(`/categories/${id}`),
+
   promotions: (params) => api.get('/promotions', { params }),
+  createPromotion: (payload) => api.post('/promotions', payload),
+  updatePromotion: (id, payload) => api.patch(`/promotions/${id}`, payload),
+  deletePromotion: (id) => api.delete(`/promotions/${id}`),
+
   create: (payload) => api.post('/products', payload),
   update: (id, payload) => api.patch(`/products/${id}`, payload),
   remove: (id) => api.delete(`/products/${id}`),
-  createCategory: (payload) => api.post('/categories', payload),
-  createPromotion: (payload) => api.post('/promotions', payload),
 }
 
 export const orderApi = {
@@ -41,11 +47,15 @@ export const orderApi = {
 export const chatApi = {
   ask: (payload) => api.post('/chat', payload),
   faqs: () => api.get('/faqs'),
-  storeInfo: () => api.get('/store-info'),
   createFaq: (payload) => api.post('/faqs', payload),
+  updateFaq: (id, payload) => api.patch(`/faqs/${id}`, payload),
+  deleteFaq: (id) => api.delete(`/faqs/${id}`),
+
+  storeInfo: () => api.get('/store-info'),
+  updateStoreInfo: (payload) => api.put('/store-info', payload),
+
   chatLogs: () => api.get('/admin/chat-logs'),
   reindex: () => api.post('/admin/reindex'),
-  updateStoreInfo: (payload) => api.put('/store-info', payload),
 }
 
 export const adminApi = {
