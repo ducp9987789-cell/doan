@@ -1,10 +1,30 @@
 <template>
   <section class="section orders-page">
     <div class="container">
-      <h1 class="section-title">Đơn hàng của tôi</h1>
-      <p class="section-desc">Theo dõi tiến độ giao hàng và xem lại lịch sử các đơn hàng bạn đã đặt.</p>
+      <!-- Thông báo đặt hàng thành công -->
+      <div v-if="showSuccessBanner" class="panel order-success-banner">
+        <div class="success-icon">🎉</div>
+        <div class="success-body">
+          <h3>Đặt hàng thành công!</h3>
+          <p>Cảm ơn bạn đã mua sắm tại <strong>Fashion Store</strong>. Đơn hàng mới nhất của bạn đã được tiếp nhận và hiển thị ngay bên dưới.</p>
+        </div>
+      </div>
 
-      <div v-if="loading" class="panel text-center">
+      <div class="orders-head">
+        <div>
+          <h1 class="section-title">Đơn hàng của tôi</h1>
+          <p class="section-desc">Theo dõi tiến độ giao hàng và xem lại lịch sử các đơn hàng bạn đã đặt.</p>
+        </div>
+        <button class="btn-refresh" @click="fetchOrders" :disabled="loading" title="Cập nhật danh sách đơn hàng">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M23 4v6h-6M1 20v-6h6"></path>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+          </svg>
+          <span>{{ loading ? 'Đang tải...' : 'Làm mới' }}</span>
+        </button>
+      </div>
+
+      <div v-if="loading && !orders.length" class="panel text-center">
         <p>Đang tải danh sách đơn hàng...</p>
       </div>
 
@@ -66,11 +86,14 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { orderApi } from '../services'
 
+const route = useRoute()
 const orders = ref([])
 const loading = ref(false)
+const showSuccessBanner = ref(false)
 
 const statusMap = {
   pending: 'Chờ xác nhận',
@@ -92,7 +115,7 @@ function formatDate(value) {
   return value ? new Date(value).toLocaleString('vi-VN') : ''
 }
 
-onMounted(async () => {
+async function fetchOrders() {
   loading.value = true
   try {
     const { data } = await orderApi.myOrders()
@@ -102,10 +125,88 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
+}
+
+onMounted(() => {
+  if (route.query.success) {
+    showSuccessBanner.value = true
+  }
+  fetchOrders()
 })
+
+watch(
+  () => route.fullPath,
+  () => {
+    if (route.query.success) {
+      showSuccessBanner.value = true
+    }
+    fetchOrders()
+  }
+)
 </script>
 
 <style scoped>
+.order-success-banner {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 12px;
+  padding: 1.2rem 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.success-icon {
+  font-size: 2.2rem;
+}
+
+.success-body h3 {
+  margin: 0 0 0.3rem;
+  font-size: 1.15rem;
+  color: #166534;
+}
+
+.success-body p {
+  margin: 0;
+  color: #15803d;
+  font-size: 0.92rem;
+}
+
+.orders-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.btn-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1rem;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-refresh:hover:not(:disabled) {
+  background: #f8f9fa;
+  border-color: #d1d5db;
+}
+
+.btn-refresh:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .empty-orders {
   padding: 4rem 2rem;
   background: #ffffff;

@@ -171,8 +171,12 @@ async function submit() {
         password: form.password,
       })
     }
-    const redirectUrl = route.query.redirect || '/'
-    router.push(redirectUrl)
+    if (auth.isAdmin) {
+      router.push('/admin')
+    } else {
+      const redirectUrl = (route.query.redirect && route.query.redirect !== '/') ? route.query.redirect : '/products'
+      router.push(redirectUrl)
+    }
   } catch (err) {
     console.error('Lỗi xác thực:', err)
   }

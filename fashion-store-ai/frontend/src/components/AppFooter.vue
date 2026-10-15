@@ -1,65 +1,5 @@
 <template>
   <footer class="site-footer">
-    <!-- Cam kết dịch vụ ở đầu footer -->
-    <div class="footer-features">
-      <div class="container">
-        <div class="features-grid">
-          <div class="feature-item">
-            <div class="feature-icon">
-              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="1" y="3" width="15" height="13"></rect>
-                <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
-                <circle cx="5.5" cy="18.5" r="2.5"></circle>
-                <circle cx="18.5" cy="18.5" r="2.5"></circle>
-              </svg>
-            </div>
-            <div>
-              <h4>Giao hàng hỏa tốc</h4>
-              <p>Nhận hàng trong 2H nội thành, toàn quốc 1-3 ngày</p>
-            </div>
-          </div>
-
-          <div class="feature-item">
-            <div class="feature-icon">
-              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="23 4 23 10 17 10"></polyline>
-                <polyline points="1 20 1 14 7 14"></polyline>
-                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-              </svg>
-            </div>
-            <div>
-              <h4>Đổi trả 30 ngày</h4>
-              <p>Đổi size, đổi mẫu dễ dàng và hoàn toàn miễn phí</p>
-            </div>
-          </div>
-
-          <div class="feature-item">
-            <div class="feature-icon">
-              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-              </svg>
-            </div>
-            <div>
-              <h4>100% Chính hãng</h4>
-              <p>Chất liệu cao cấp, bảo đảm chất lượng tuyệt đối</p>
-            </div>
-          </div>
-
-          <div class="feature-item">
-            <div class="feature-icon">
-              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-              </svg>
-            </div>
-            <div>
-              <h4>AI Stylist 24/7</h4>
-              <p>Trợ lý thông minh tư vấn outfit và size theo vóc dáng</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- Nội dung chính của footer (4 cột) -->
     <div class="container footer-main">
       <div class="footer-grid">
@@ -188,51 +128,6 @@ function alertHelp(message) {
   color: #e5ded6;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   margin-top: 4rem;
-}
-
-/* Cam kết dịch vụ */
-.footer-features {
-  background: #171411;
-  padding: 2.2rem 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.features-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 1.5rem;
-}
-
-.feature-item {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.feature-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
-  background: rgba(201, 147, 66, 0.15);
-  color: var(--accent-gold);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.feature-item h4 {
-  margin: 0 0 0.2rem;
-  font-size: 0.98rem;
-  font-weight: 700;
-  color: #ffffff;
-}
-
-.feature-item p {
-  margin: 0;
-  font-size: 0.82rem;
-  color: #a89f94;
-  line-height: 1.35;
 }
 
 /* Lưới footer 4 cột */

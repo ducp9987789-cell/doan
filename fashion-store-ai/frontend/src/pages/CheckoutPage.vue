@@ -70,12 +70,14 @@
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { orderApi } from '../services'
+import { useAuthStore } from '../stores/auth'
 import { useCartStore } from '../stores/cart'
 
 const router = useRouter()
+const auth = useAuthStore()
 const cart = useCartStore()
 const loading = ref(false)
 const error = ref('')
@@ -83,25 +85,33 @@ const paymentMethod = ref('cod')
 const promotionCode = ref('')
 
 const form = reactive({
-  full_name: '',
-  phone: '',
-  address: '',
-  city: '',
+  full_name: auth.user?.full_name || '',
+  phone: auth.user?.phone || '',
+  address: auth.user?.address || '',
+  city: 'Hà Nội',
   district: '',
   note: '',
+})
+
+onMounted(() => {
+  if (auth.user) {
+    if (!form.full_name) form.full_name = auth.user.full_name || ''
+    if (!form.phone) form.phone = auth.user.phone || ''
+    if (!form.address) form.address = auth.user.address || ''
+  }
 })
 
 async function submit() {
   loading.value = true
   error.value = ''
   try {
-    await orderApi.createOrder({
+    const { data: newOrder } = await orderApi.createOrder({
       shipping_address: { ...form },
       payment_method: paymentMethod.value,
       promotion_code: promotionCode.value ? promotionCode.value.trim() : null,
     })
     cart.reset()
-    router.push('/orders')
+    router.push({ path: '/orders', query: { success: '1', id: newOrder?.id } })
   } catch (err) {
     error.value = err.response?.data?.detail || 'Đặt hàng không thành công. Vui lòng kiểm tra lại thông tin.'
   } finally {

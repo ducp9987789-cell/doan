@@ -2,45 +2,106 @@
   <div class="home-page">
     <!-- Hero Banner Thời Trang -->
     <section class="hero">
-      <div class="hero-media" aria-hidden="true"></div>
-      <div class="hero-overlay"></div>
-      <div class="container hero-content fade-up">
-        <div class="hero-badge">
-          <span class="sparkle">✨</span>
-          <span>Bộ sưu tập thời trang cao cấp & Xu hướng mới 2026</span>
-        </div>
-        <h1 class="hero-title">FASHION STORE</h1>
-        <p class="hero-lead">
-          Nâng tầm phong cách cá nhân với tủ đồ chọn lọc thời thượng, kết hợp cùng <strong>Trợ lý AI Stylist</strong> tư vấn trang phục & chọn size chuẩn xác 24/7.
-        </p>
-        <div class="hero-cta-row">
-          <RouterLink class="btn btn-hero-primary" to="/products">
-            <span>Khám phá bộ sưu tập</span>
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="5" y1="12" x2="19" y2="12"></line>
-              <polyline points="12 5 19 12 12 19"></polyline>
-            </svg>
-          </RouterLink>
-          <button class="btn btn-hero-ghost" @click="scrollToSection('promos')">
-            <span>Xem mã giảm giá HOT</span>
-            <span class="badge-hot">Ưu đãi</span>
-          </button>
+      <div class="container hero-grid fade-up">
+        <!-- Cột bên trái: Giới thiệu & CTA -->
+        <div class="hero-left">
+          <h1 class="hero-title">FASHION STORE</h1>
+          <p class="hero-lead">
+            Nâng tầm phong cách cá nhân với tủ đồ chọn lọc thời thượng, kết hợp cùng <strong>Trợ lý AI Stylist</strong> tư vấn trang phục & chọn size chuẩn xác 24/7.
+          </p>
+          <div class="hero-cta-row">
+            <RouterLink class="btn btn-hero-primary" to="/products">
+              <span>Khám phá bộ sưu tập</span>
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+                <polyline points="12 5 19 12 12 19"></polyline>
+              </svg>
+            </RouterLink>
+            <button class="btn btn-hero-ghost" @click="scrollToSection('promos')">
+              <span>Xem mã giảm giá HOT</span>
+              <span class="badge-hot">Ưu đãi</span>
+            </button>
+          </div>
+
+          <div class="hero-stats">
+            <div class="stat-item">
+              <strong>Mã giảm giá</strong>
+              <span>Áp dụng tức thì</span>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat-item">
+              <strong>30 Ngày</strong>
+              <span>Đổi trả miễn phí</span>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat-item">
+              <strong>24/7</strong>
+              <span>AI Stylist tư vấn</span>
+            </div>
+          </div>
         </div>
 
-        <div class="hero-stats">
-          <div class="stat-item">
-            <strong>100%</strong>
-            <span>Hàng chính hãng</span>
-          </div>
-          <div class="stat-divider"></div>
-          <div class="stat-item">
-            <strong>30 Ngày</strong>
-            <span>Đổi trả miễn phí</span>
-          </div>
-          <div class="stat-divider"></div>
-          <div class="stat-item">
-            <strong>24/7</strong>
-            <span>AI Stylist tư vấn</span>
+        <!-- Cột bên phải: Card lớn Sản phẩm nổi bật tự chạy quảng cáo -->
+        <div
+          class="hero-right"
+          v-if="carouselItems.length > 0"
+          @mouseenter="pauseCarousel"
+          @mouseleave="startCarousel"
+        >
+          <div class="hero-banner-card-wrapper">
+            <RouterLink
+              :to="`/products/${activeProduct.id}`"
+              class="hero-banner-card"
+              :key="activeProduct.id"
+            >
+              <div class="banner-img-box">
+                <img
+                  :src="activeProduct.images?.[0] || 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800'"
+                  :alt="activeProduct.name"
+                  class="banner-img"
+                />
+                <div class="banner-badge-row">
+                  <span class="banner-tag">🔥 SẢN PHẨM NỔI BẬT</span>
+                  <span v-if="activeDiscount" class="banner-sale-tag">-{{ activeDiscount }}%</span>
+                </div>
+              </div>
+
+              <div class="banner-info-overlay">
+                <div class="banner-cat">{{ activeProduct.category_name || 'Thời trang cao cấp' }}</div>
+                <h3 class="banner-title">{{ activeProduct.name }}</h3>
+                <div class="banner-price-row">
+                  <div class="banner-prices">
+                    <span class="banner-sale-price">{{ formatPrice(activeProduct.sale_price || activeProduct.price) }}</span>
+                    <span v-if="activeProduct.sale_price && activeProduct.sale_price < activeProduct.price" class="banner-old-price">
+                      {{ formatPrice(activeProduct.price) }}
+                    </span>
+                  </div>
+                  <span class="banner-btn-view">
+                    <span>Xem chi tiết</span>
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <line x1="5" y1="12" x2="19" y2="12"></line>
+                      <polyline points="12 5 19 12 12 19"></polyline>
+                    </svg>
+                  </span>
+                </div>
+              </div>
+            </RouterLink>
+
+            <!-- Điều hướng Banner Carousel -->
+            <button class="banner-nav prev" @click="prevSlide" aria-label="Sản phẩm trước">‹</button>
+            <button class="banner-nav next" @click="nextSlide" aria-label="Sản phẩm tiếp theo">›</button>
+
+            <!-- Chấm chỉ số trang (Dots) -->
+            <div class="banner-dots">
+              <button
+                v-for="(_, idx) in carouselItems"
+                :key="idx"
+                class="dot-btn"
+                :class="{ active: currentSlide === idx }"
+                @click="currentSlide = idx"
+                :aria-label="`Slide ${idx + 1}`"
+              ></button>
+            </div>
           </div>
         </div>
       </div>
@@ -220,7 +281,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import ProductCard from '../components/ProductCard.vue'
 import { productApi } from '../services'
 
@@ -229,6 +290,56 @@ const categories = ref([])
 const promotions = ref([])
 const activeTab = ref('all')
 const copiedCode = ref('')
+const currentSlide = ref(0)
+let carouselTimer = null
+
+const carouselItems = computed(() => {
+  const featured = allProducts.value.filter((p) => p.is_featured)
+  if (featured.length > 0) return featured.slice(0, 6)
+  return allProducts.value.slice(0, 6)
+})
+
+const activeProduct = computed(() => {
+  if (carouselItems.value.length === 0) return null
+  return carouselItems.value[currentSlide.value % carouselItems.value.length]
+})
+
+const activeDiscount = computed(() => {
+  if (!activeProduct.value) return null
+  const p = activeProduct.value
+  if (p.sale_price && p.price && p.sale_price < p.price) {
+    return Math.round(((p.price - p.sale_price) / p.price) * 100)
+  }
+  return null
+})
+
+function nextSlide() {
+  if (carouselItems.value.length === 0) return
+  currentSlide.value = (currentSlide.value + 1) % carouselItems.value.length
+}
+
+function prevSlide() {
+  if (carouselItems.value.length === 0) return
+  currentSlide.value = (currentSlide.value - 1 + carouselItems.value.length) % carouselItems.value.length
+}
+
+function startCarousel() {
+  stopCarousel()
+  carouselTimer = setInterval(() => {
+    nextSlide()
+  }, 3500)
+}
+
+function pauseCarousel() {
+  stopCarousel()
+}
+
+function stopCarousel() {
+  if (carouselTimer) {
+    clearInterval(carouselTimer)
+    carouselTimer = null
+  }
+}
 
 const filteredProducts = computed(() => {
   if (activeTab.value === 'featured') {
@@ -246,6 +357,10 @@ function filterProducts(tab) {
 
 function scrollToSection(id) {
   document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
+}
+
+function formatPrice(value) {
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value || 0)
 }
 
 function copyCode(code) {
@@ -267,9 +382,14 @@ onMounted(async () => {
     allProducts.value = prodRes.data.items || []
     categories.value = categoryRes.data || []
     promotions.value = promoRes.data || []
+    startCarousel()
   } catch (error) {
     console.error('Lỗi khi tải dữ liệu trang chủ:', error)
   }
+})
+
+onUnmounted(() => {
+  stopCarousel()
 })
 </script>
 
@@ -280,109 +400,86 @@ onMounted(async () => {
 
 /* Hero Section */
 .hero {
-  position: relative;
-  min-height: calc(88vh - 110px);
-  display: flex;
-  align-items: center;
-  overflow: hidden;
-  padding: 4rem 0;
-}
-
-.hero-media {
-  position: absolute;
-  inset: 0;
-  background: url('https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=2000&q=80') center/cover no-repeat;
-  transform: scale(1.02);
-  animation: zoomSlow 20s ease-in-out infinite alternate;
-}
-
-.hero-overlay {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgba(20, 18, 15, 0.78) 0%, rgba(20, 18, 15, 0.52) 100%);
-}
-
-.hero-content {
-  position: relative;
-  z-index: 2;
+  background: #14171c;
   color: #ffffff;
-  max-width: 780px;
+  padding: 3.5rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.hero-badge {
-  display: inline-flex;
+.hero-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 3rem;
   align-items: center;
-  gap: 0.5rem;
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(10px);
-  padding: 0.45rem 1.1rem;
-  border-radius: 999px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  margin-bottom: 1.2rem;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  color: #f7f2ea;
+}
+
+.hero-left {
+  display: flex;
+  flex-direction: column;
 }
 
 .hero-title {
   font-family: var(--font-display);
-  font-size: clamp(3.2rem, 8vw, 5.8rem);
+  font-size: clamp(2.8rem, 5vw, 4.2rem);
   font-weight: 700;
-  line-height: 1;
-  letter-spacing: 0.04em;
-  margin: 0 0 1.2rem;
+  line-height: 1.1;
+  margin: 0 0 1rem;
   color: #ffffff;
-  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  letter-spacing: 0.02em;
 }
 
 .hero-lead {
-  font-size: clamp(1.05rem, 2vw, 1.25rem);
+  font-size: 1.05rem;
   line-height: 1.6;
   margin: 0 0 2rem;
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .hero-lead strong {
-  color: var(--accent-gold);
+  color: #f1b34e;
 }
 
 .hero-cta-row {
   display: flex;
   gap: 1rem;
   flex-wrap: wrap;
-  margin-bottom: 2.8rem;
+  margin-bottom: 2.5rem;
 }
 
 .btn-hero-primary {
-  padding: 0.95rem 1.8rem;
-  font-size: 1.05rem;
-  background: var(--accent);
+  padding: 0.85rem 1.6rem;
+  font-size: 0.98rem;
+  background: #114b43;
+  color: #ffffff;
+  border: 1px solid #1a6b60;
+  border-radius: 999px;
+}
+
+.btn-hero-primary:hover {
+  background: #0d3b34;
 }
 
 .btn-hero-ghost {
   display: inline-flex;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.95rem 1.6rem;
-  font-size: 1rem;
+  gap: 0.5rem;
+  padding: 0.85rem 1.4rem;
+  font-size: 0.95rem;
   font-weight: 600;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.1);
   color: #ffffff;
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   cursor: pointer;
-  transition: all 0.25s ease;
+  transition: all 0.2s ease;
 }
 
 .btn-hero-ghost:hover {
-  background: rgba(255, 255, 255, 0.35);
-  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .badge-hot {
-  background: var(--danger);
+  background: #dc2626;
   color: #ffffff;
   font-size: 0.72rem;
   font-weight: 700;
@@ -395,7 +492,7 @@ onMounted(async () => {
   align-items: center;
   gap: 1.5rem;
   padding-top: 1.5rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.18);
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
 }
 
 .stat-item {
@@ -404,19 +501,220 @@ onMounted(async () => {
 }
 
 .stat-item strong {
-  font-size: 1.3rem;
+  font-size: 1.15rem;
   color: #ffffff;
 }
 
 .stat-item span {
   font-size: 0.82rem;
-  color: rgba(255, 255, 255, 0.75);
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .stat-divider {
   width: 1px;
   height: 28px;
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Right side banner card */
+.hero-right {
+  position: relative;
+  width: 100%;
+}
+
+.hero-banner-card-wrapper {
+  position: relative;
+  background: #1f242b;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+  transition: transform 0.3s ease, border-color 0.3s ease;
+}
+
+.hero-banner-card-wrapper:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.hero-banner-card {
+  display: block;
+  text-decoration: none;
+  color: #ffffff;
+  position: relative;
+}
+
+.banner-img-box {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: #2b303a;
+}
+
+.banner-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s ease;
+}
+
+.hero-banner-card-wrapper:hover .banner-img {
+  transform: scale(1.04);
+}
+
+.banner-badge-row {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: flex;
+  gap: 0.5rem;
+  z-index: 2;
+}
+
+.banner-tag {
+  background: #b91c1c;
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 4px 9px;
+  border-radius: 6px;
+  letter-spacing: 0.03em;
+}
+
+.banner-sale-tag {
+  background: #047857;
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.banner-info-overlay {
+  padding: 1.25rem;
+  background: #1a1e24;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.banner-cat {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: #f1b34e;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.3rem;
+}
+
+.banner-title {
+  font-family: var(--font-body);
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0 0 0.8rem;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.banner-price-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.banner-prices {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.banner-sale-price {
+  color: #ef4444;
+  font-size: 1.2rem;
+  font-weight: 800;
+}
+
+.banner-old-price {
+  color: #9ca3af;
+  text-decoration: line-through;
+  font-size: 0.9rem;
+}
+
+.banner-btn-view {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #6ee7b7;
+  transition: transform 0.2s ease;
+}
+
+.hero-banner-card-wrapper:hover .banner-btn-view {
+  transform: translateX(3px);
+}
+
+.banner-nav {
+  position: absolute;
+  top: 38%;
+  transform: translateY(-50%);
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 5;
+  transition: all 0.2s ease;
+}
+
+.banner-nav:hover {
+  background: rgba(0, 0, 0, 0.85);
+  transform: translateY(-50%) scale(1.1);
+}
+
+.banner-nav.prev {
+  left: 10px;
+}
+
+.banner-nav.next {
+  right: 10px;
+}
+
+.banner-dots {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  z-index: 5;
+}
+
+.dot-btn {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.25s ease;
+}
+
+.dot-btn.active {
+  background: #f1b34e;
+  width: 20px;
+  border-radius: 999px;
 }
 
 /* Header Section */
@@ -794,6 +1092,10 @@ onMounted(async () => {
 }
 
 @media (max-width: 900px) {
+  .hero-grid {
+    grid-template-columns: 1fr;
+    gap: 2.5rem;
+  }
   .ai-banner {
     grid-template-columns: 1fr;
   }
@@ -802,7 +1104,10 @@ onMounted(async () => {
 @media (max-width: 600px) {
   .hero {
     min-height: auto;
-    padding: 3rem 0;
+    padding: 2.5rem 0;
+  }
+  .hero-title {
+    font-size: 2.2rem;
   }
   .hero-cta-row {
     flex-direction: column;

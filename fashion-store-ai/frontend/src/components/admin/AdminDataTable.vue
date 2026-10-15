@@ -1,29 +1,29 @@
 <template>
   <div class="admin-datatable-wrapper">
-    <!-- Thanh công cụ phía trên bảng: Tìm kiếm tổng quát + Reset lọc -->
+    <!-- Thanh công cụ phía trên bảng: Nút Xóa bộ lọc bên trái + Nút Tải lại bên phải (chỗ ghi hiển thị bản ghi cũ) -->
     <div class="datatable-toolbar">
       <div class="toolbar-left">
-        <div class="quick-search-box">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          </svg>
-          <input
-            v-model="globalSearch"
-            type="text"
-            placeholder="Tìm kiếm nhanh trong bảng..."
-            class="quick-search-input"
-          />
-        </div>
         <button v-if="hasActiveFilters" class="btn-clear-filters" @click="clearAllFilters">
           ✕ Xóa tất cả bộ lọc
         </button>
       </div>
 
       <div class="toolbar-right">
-        <span class="rows-info">
-          Hiển thị <strong>{{ paginatedRows.length }}</strong> / <strong>{{ filteredRows.length }}</strong> bản ghi
-        </span>
+        <slot name="toolbar-actions" />
+        <button
+          v-if="showReload"
+          type="button"
+          class="btn-table-reload"
+          @click="$emit('reload')"
+          :disabled="loading"
+          title="Tải lại danh sách"
+        >
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" :class="{ 'spin-icon': loading }">
+            <path d="M23 4v6h-6M1 20v-6h6"></path>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+          </svg>
+          <span>Tải lại</span>
+        </button>
       </div>
     </div>
 
@@ -55,9 +55,61 @@
           <tr class="filter-row">
             <th v-for="col in columns" :key="`filter-${col.key}`" :style="{ textAlign: col.align || 'left' }">
               <div v-if="col.filterable !== false" class="col-filter-box">
-                <!-- Dropdown filter -->
+                <!-- Searchable Select / Combobox: vừa có dropdown vừa có tìm kiếm -->
+                <div
+                  v-if="col.filterType === 'searchable-select'"
+                  class="col-filter-combobox"
+                  :class="{ 'is-open': activeDropdownKey === col.key }"
+                >
+                  <div class="combobox-input-wrapper">
+                    <input
+                      v-model="columnFilters[col.key]"
+                      type="text"
+                      :placeholder="`Lọc ${col.label}...`"
+                      class="col-filter-input combobox-input"
+                      @focus="openDropdown(col.key)"
+                      @input="openDropdown(col.key)"
+                      @keydown.esc="closeDropdown"
+                    />
+                    <button
+                      type="button"
+                      class="btn-combobox-toggle"
+                      @click.stop="toggleDropdown(col.key)"
+                      :title="`Chọn ${col.label}`"
+                    >
+                      <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                      </svg>
+                    </button>
+                  </div>
+
+                  <!-- Dropdown popover list -->
+                  <div v-if="activeDropdownKey === col.key" class="combobox-menu">
+                    <div
+                      class="combobox-option"
+                      :class="{ active: !columnFilters[col.key] }"
+                      @mousedown.prevent="selectComboboxOption(col.key, '')"
+                    >
+                      <span>Tất cả</span>
+                    </div>
+                    <div
+                      v-for="opt in getFilteredOptions(col)"
+                      :key="opt.value !== undefined ? opt.value : opt"
+                      class="combobox-option"
+                      :class="{ active: columnFilters[col.key] === (opt.value !== undefined ? opt.value : opt) }"
+                      @mousedown.prevent="selectComboboxOption(col.key, opt.value !== undefined ? opt.value : opt)"
+                    >
+                      <span>{{ opt.label || opt }}</span>
+                    </div>
+                    <div v-if="getFilteredOptions(col).length === 0" class="combobox-no-options">
+                      Không có lựa chọn phù hợp
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Dropdown filter thông thường -->
                 <select
-                  v-if="col.filterType === 'select'"
+                  v-else-if="col.filterType === 'select'"
                   v-model="columnFilters[col.key]"
                   class="col-filter-select"
                 >
@@ -71,7 +123,7 @@
                   </option>
                 </select>
 
-                <!-- Text filter -->
+                <!-- Text filter thông thường -->
                 <input
                   v-else
                   v-model="columnFilters[col.key]"
@@ -122,19 +174,27 @@
       </table>
     </div>
 
-    <!-- Phân trang (Pagination) -->
-    <div class="datatable-pagination" v-if="totalPages > 1">
-      <div class="page-size-selector">
-        <span>Số dòng/trang:</span>
-        <select v-model="perPage">
-          <option :value="5">5</option>
-          <option :value="10">10</option>
-          <option :value="20">20</option>
-          <option :value="50">50</option>
-        </select>
+    <!-- Phân trang (Pagination) ở đáy bảng - luôn hiển thị -->
+    <div class="datatable-pagination">
+      <!-- Góc dưới bên trái: Số dòng/trang + Hiển thị X / Y bản ghi -->
+      <div class="pagination-left">
+        <div class="page-size-selector">
+          <span>Số dòng/trang:</span>
+          <select v-model="perPage" class="select-per-page">
+            <option :value="5">5</option>
+            <option :value="10">10</option>
+            <option :value="20">20</option>
+            <option :value="50">50</option>
+          </select>
+        </div>
+
+        <span class="rows-info">
+          Hiển thị <strong>{{ paginatedRows.length }}</strong> / <strong>{{ filteredRows.length }}</strong> bản ghi
+        </span>
       </div>
 
-      <div class="pagination-controls">
+      <!-- Góc dưới bên phải: Điều hướng phân trang (chỉ hiện khi có nhiều hơn 1 trang) -->
+      <div class="pagination-controls" v-if="totalPages > 1">
         <button
           class="btn-page"
           :disabled="currentPage === 1"
@@ -160,23 +220,26 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 
 const props = defineProps({
   columns: { type: Array, required: true },
   rows: { type: Array, required: true },
   loading: { type: Boolean, default: false },
+  showReload: { type: Boolean, default: true },
   emptyText: { type: String, default: 'Chưa có bản ghi nào' },
   defaultSortKey: { type: String, default: '' },
   defaultSortOrder: { type: String, default: 'desc' },
 })
 
-const globalSearch = ref('')
+defineEmits(['reload'])
+
 const columnFilters = reactive({})
 const sortKey = ref(props.defaultSortKey)
 const sortOrder = ref(props.defaultSortOrder)
 const currentPage = ref(1)
 const perPage = ref(10)
+const activeDropdownKey = ref(null)
 
 // Initialize column filters
 props.columns.forEach((col) => {
@@ -184,17 +247,61 @@ props.columns.forEach((col) => {
 })
 
 const hasActiveFilters = computed(() => {
-  if (globalSearch.value.trim()) return true
   return Object.values(columnFilters).some((val) => val !== '' && val !== null && val !== undefined)
 })
 
 function clearAllFilters() {
-  globalSearch.value = ''
   Object.keys(columnFilters).forEach((k) => {
     columnFilters[k] = ''
   })
+  activeDropdownKey.value = null
   currentPage.value = 1
 }
+
+function toggleDropdown(key) {
+  if (activeDropdownKey.value === key) {
+    activeDropdownKey.value = null
+  } else {
+    activeDropdownKey.value = key
+  }
+}
+
+function openDropdown(key) {
+  activeDropdownKey.value = key
+}
+
+function closeDropdown() {
+  activeDropdownKey.value = null
+}
+
+function selectComboboxOption(key, val) {
+  columnFilters[key] = val
+  activeDropdownKey.value = null
+}
+
+function getFilteredOptions(col) {
+  const options = col.filterOptions || []
+  const filterText = String(columnFilters[col.key] || '').toLowerCase().trim()
+  if (!filterText) return options
+  return options.filter((opt) => {
+    const label = String(opt.label || opt).toLowerCase()
+    return label.includes(filterText)
+  })
+}
+
+function handleClickOutside(e) {
+  if (!e.target.closest('.col-filter-combobox')) {
+    activeDropdownKey.value = null
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
+})
 
 function handleSort(col) {
   if (!col.sortable) return
@@ -219,20 +326,6 @@ function formatCellValue(val, col) {
 
 const filteredRows = computed(() => {
   let result = [...props.rows]
-
-  // Global search
-  const q = globalSearch.value.trim().toLowerCase()
-  if (q) {
-    result = result.filter((row) => {
-      return Object.values(row).some((val) => {
-        if (val === null || val === undefined) return false
-        if (typeof val === 'object') {
-          return JSON.stringify(val).toLowerCase().includes(q)
-        }
-        return String(val).toLowerCase().includes(q)
-      })
-    })
-  }
 
   // Per-column filter
   Object.entries(columnFilters).forEach(([key, filterVal]) => {
@@ -276,7 +369,7 @@ const paginatedRows = computed(() => {
   return filteredRows.value.slice(start, start + perPage.value)
 })
 
-watch([globalSearch, columnFilters], () => {
+watch(columnFilters, () => {
   currentPage.value = 1
 })
 </script>
@@ -285,7 +378,7 @@ watch([globalSearch, columnFilters], () => {
 .admin-datatable-wrapper {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.8rem;
 }
 
 /* Toolbar */
@@ -295,6 +388,7 @@ watch([globalSearch, columnFilters], () => {
   align-items: center;
   flex-wrap: wrap;
   gap: 0.8rem;
+  min-height: 38px;
 }
 
 .toolbar-left {
@@ -304,23 +398,42 @@ watch([globalSearch, columnFilters], () => {
   flex-wrap: wrap;
 }
 
-.quick-search-box {
+.toolbar-right {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.6rem;
+  margin-left: auto;
+}
+
+.btn-table-reload {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.9rem;
   background: #ffffff;
   border: 1px solid var(--line-strong);
-  border-radius: 999px;
-  padding: 0.45rem 1rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+  transition: all 0.2s ease;
   box-shadow: var(--shadow-sm);
 }
 
-.quick-search-input {
-  border: none;
-  background: transparent;
-  outline: none;
-  font-size: 0.88rem;
-  width: 220px;
+.btn-table-reload:hover:not(:disabled) {
+  background: #f4f6f8;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btn-table-reload:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.spin-icon {
+  animation: spin 0.8s linear infinite;
 }
 
 .btn-clear-filters {
@@ -340,11 +453,6 @@ watch([globalSearch, columnFilters], () => {
   color: #ffffff;
 }
 
-.rows-info {
-  font-size: 0.85rem;
-  color: var(--muted);
-}
-
 /* Table */
 .table-container {
   overflow-x: auto;
@@ -352,6 +460,7 @@ watch([globalSearch, columnFilters], () => {
   border-radius: var(--radius);
   background: #ffffff;
   box-shadow: var(--shadow-sm);
+  min-height: 240px;
 }
 
 .admin-table {
@@ -398,6 +507,7 @@ watch([globalSearch, columnFilters], () => {
   background: #fdfbf7;
   padding: 0.5rem 0.6rem;
   border-bottom: 2px solid var(--line);
+  position: relative;
 }
 
 .col-filter-box {
@@ -422,6 +532,92 @@ watch([globalSearch, columnFilters], () => {
   box-shadow: 0 0 0 2px rgba(17, 75, 67, 0.1);
 }
 
+/* Combobox (vừa có dropdown vừa có tìm kiếm) */
+.col-filter-combobox {
+  position: relative;
+  width: 100%;
+}
+
+.combobox-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.combobox-input {
+  padding-right: 26px !important;
+}
+
+.btn-combobox-toggle {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: color 0.15s ease;
+}
+
+.btn-combobox-toggle:hover {
+  color: var(--ink);
+}
+
+.combobox-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 180px;
+  width: 100%;
+  max-height: 220px;
+  overflow-y: auto;
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  z-index: 100;
+  padding: 4px;
+}
+
+.combobox-option {
+  padding: 7px 10px;
+  font-size: 0.85rem;
+  color: var(--ink);
+  border-radius: 5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: background 0.15s ease;
+  text-align: left;
+}
+
+.combobox-option:hover {
+  background: #f3f4f6;
+  color: var(--accent);
+}
+
+.combobox-option.active {
+  background: #eef2ff;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.combobox-no-options {
+  padding: 8px 10px;
+  font-size: 0.82rem;
+  color: var(--muted);
+  text-align: center;
+  font-style: italic;
+}
+
 .no-filter {
   text-align: center;
   color: var(--muted);
@@ -443,14 +639,21 @@ watch([globalSearch, columnFilters], () => {
   vertical-align: middle;
 }
 
-/* Pagination */
+/* Pagination ở góc dưới */
 .datatable-pagination {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.5rem 0;
+  padding: 0.6rem 0;
   flex-wrap: wrap;
   gap: 1rem;
+}
+
+.pagination-left {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
 }
 
 .page-size-selector {
@@ -461,16 +664,31 @@ watch([globalSearch, columnFilters], () => {
   color: var(--muted);
 }
 
-.page-size-selector select {
-  padding: 0.3rem 0.5rem;
+.select-per-page {
+  padding: 0.35rem 0.6rem;
   border-radius: 6px;
   border: 1px solid var(--line-strong);
+  background: #ffffff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.rows-info {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.rows-info strong {
+  color: var(--ink);
 }
 
 .pagination-controls {
   display: flex;
   align-items: center;
   gap: 0.8rem;
+  margin-left: auto;
 }
 
 .btn-page {

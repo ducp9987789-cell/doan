@@ -188,8 +188,32 @@ watch(
 
 .filters {
   position: sticky;
-  top: 130px;
+  top: 110px;
+  max-height: calc(100vh - 130px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   background: #ffffff;
+  padding: 1.5rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-sm);
+}
+
+.filters::-webkit-scrollbar {
+  width: 5px;
+}
+
+.filters::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.filters::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.filters::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }
 
 .filter-header {
@@ -268,6 +292,8 @@ watch(
   }
   .filters {
     position: static;
+    max-height: none;
+    overflow-y: visible;
   }
 }
 </style>

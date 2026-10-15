@@ -110,6 +110,7 @@
               :rows="orders.slice(0, 5)"
               :loading="loading"
               emptyText="Chưa có đơn hàng nào."
+              @reload="loadOrders"
             >
               <template #cell-status="{ value }">
                 <span class="status-pill" :class="value">{{ formatStatus(value) }}</span>
@@ -151,10 +152,7 @@
           </div>
           <div class="action-buttons">
             <button class="btn" @click="openCreateCategoryModal">
-              ➕ Thêm danh mục mới
-            </button>
-            <button class="btn secondary" @click="loadCategories">
-              🔄 Tải lại
+              ➕ Thêm mới
             </button>
           </div>
         </div>
@@ -166,6 +164,7 @@
             :rows="categories"
             :loading="loading"
             emptyText="Chưa có danh mục nào."
+            @reload="loadCategories"
           >
             <template #cell-is_active="{ value }">
               <span class="badge-status" :class="value ? 'active' : 'inactive'">
@@ -201,24 +200,39 @@
             <h1 class="page-title">👗 Quản lý sản phẩm thời trang</h1>
             <p class="page-desc">Thêm mới, chỉnh sửa thông tin, giá bán, màu sắc, size và quản lý tồn kho sản phẩm.</p>
           </div>
-          <div class="action-buttons">
-            <button class="btn" @click="openCreateProductModal">
-              ➕ Thêm sản phẩm mới
-            </button>
-            <button class="btn secondary" @click="loadProducts">
-              🔄 Tải lại
-            </button>
-          </div>
         </div>
 
         <!-- Bảng sản phẩm với filter từng cột -->
         <div class="panel mb-4">
+          <input
+            ref="productImportInput"
+            type="file"
+            accept=".csv,.json,text/csv,application/json"
+            hidden
+            @change="handleProductImport"
+          />
           <AdminDataTable
             :columns="productColumns"
             :rows="products"
             :loading="loading"
             emptyText="Chưa có sản phẩm nào."
+            @reload="loadProducts"
           >
+            <template #toolbar-actions>
+              <button
+                class="btn secondary btn-sm"
+                type="button"
+                :disabled="importingProducts"
+                title="Import sản phẩm từ file CSV hoặc JSON"
+                @click="openProductImport"
+              >
+                {{ importingProducts ? '⏳ Đang import...' : '📥 Import' }}
+              </button>
+              <button class="btn btn-sm" type="button" @click="openCreateProductModal">
+                ➕ Thêm mới
+              </button>
+            </template>
+
             <template #cell-image="{ row }">
               <img
                 :src="row.images?.[0] || 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800'"
@@ -268,11 +282,6 @@
             <h1 class="page-title">📦 Quản lý đơn hàng khách mua</h1>
             <p class="page-desc">Theo dõi thông tin người nhận, danh sách món hàng và cập nhật tiến độ giao hàng.</p>
           </div>
-          <div class="action-buttons">
-            <button class="btn secondary" @click="loadOrders">
-              🔄 Tải lại đơn hàng
-            </button>
-          </div>
         </div>
 
         <!-- Bảng đơn hàng với filter từng cột -->
@@ -282,6 +291,7 @@
             :rows="orders"
             :loading="loading"
             emptyText="Chưa có đơn hàng nào."
+            @reload="loadOrders"
           >
             <template #cell-id="{ value }">
               <strong>#{{ String(value).slice(-6).toUpperCase() }}</strong>
@@ -342,10 +352,7 @@
           </div>
           <div class="action-buttons">
             <button class="btn" @click="openCreatePromoModal">
-              ➕ Thêm mã khuyến mãi
-            </button>
-            <button class="btn secondary" @click="loadPromotions">
-              🔄 Tải lại
+              ➕ Thêm mới
             </button>
           </div>
         </div>
@@ -357,6 +364,7 @@
             :rows="promotions"
             :loading="loading"
             emptyText="Chưa có mã khuyến mãi nào."
+            @reload="loadPromotions"
           >
             <template #cell-code="{ value }">
               <span class="code-badge">{{ value }}</span>
@@ -471,7 +479,7 @@
           </div>
           <div class="action-buttons">
             <button class="btn" @click="openCreateFaqModal">
-              ➕ Thêm câu hỏi FAQ
+              ➕ Thêm mới
             </button>
             <button class="btn btn-reindex" :disabled="reindexing" @click="handleReindex">
               {{ reindexing ? '⏳ Đang đồng bộ...' : '⚡ Đồng bộ dữ liệu AI (ChromaDB)' }}
@@ -492,6 +500,7 @@
             :rows="faqs"
             :loading="loading"
             emptyText="Chưa có câu hỏi FAQ nào."
+            @reload="loadFaqs"
           >
             <template #cell-question="{ value }">
               <strong>❓ {{ value }}</strong>
@@ -515,6 +524,7 @@
             :rows="chatLogs"
             :loading="loading"
             emptyText="Chưa có nhật ký hội thoại nào."
+            @reload="loadChatLogs"
           />
         </div>
 
@@ -802,6 +812,8 @@ const orders = ref([])
 const promotions = ref([])
 const faqs = ref([])
 const chatLogs = ref([])
+const productImportInput = ref(null)
+const importingProducts = ref(false)
 
 // Trạng thái modal
 const showCategoryModal = ref(false)
@@ -889,14 +901,20 @@ const categoryColumns = [
   { key: 'actions', label: 'Thao tác', width: '160px', filterable: false, align: 'center' },
 ]
 
-const productColumns = [
+const productColumns = computed(() => [
   { key: 'image', label: 'Ảnh', width: '70px', filterable: false },
   { key: 'name', label: 'Tên sản phẩm', sortable: true },
-  { key: 'category_name', label: 'Danh mục', sortable: true },
+  {
+    key: 'category_name',
+    label: 'Danh mục',
+    sortable: true,
+    filterType: 'searchable-select',
+    filterOptions: categories.value.map((c) => ({ label: c.name, value: c.name })),
+  },
   { key: 'price', label: 'Giá bán', sortable: true, width: '150px' },
   { key: 'stock', label: 'Tồn kho', sortable: true, width: '100px', align: 'center' },
   { key: 'actions', label: 'Thao tác', width: '160px', filterable: false, align: 'center' },
-]
+])
 
 const orderColumns = [
   { key: 'id', label: 'Mã đơn', width: '120px', sortable: true },
@@ -1024,6 +1042,151 @@ async function loadProducts() {
   products.value = data.items || []
 }
 
+function parseCsvProducts(text) {
+  const rows = []
+  let row = []
+  let field = ''
+  let insideQuotes = false
+
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index]
+    if (character === '"') {
+      if (insideQuotes && text[index + 1] === '"') {
+        field += '"'
+        index += 1
+      } else {
+        insideQuotes = !insideQuotes
+      }
+    } else if (character === ',' && !insideQuotes) {
+      row.push(field)
+      field = ''
+    } else if ((character === '\n' || character === '\r') && !insideQuotes) {
+      row.push(field)
+      if (row.some((value) => value.trim())) rows.push(row)
+      row = []
+      field = ''
+      if (character === '\r' && text[index + 1] === '\n') index += 1
+    } else {
+      field += character
+    }
+  }
+
+  if (insideQuotes) throw new Error('File CSV có dấu ngoặc kép chưa đóng.')
+  row.push(field)
+  if (row.some((value) => value.trim())) rows.push(row)
+  if (rows.length < 2) throw new Error('File CSV không có dữ liệu sản phẩm.')
+
+  const headers = rows[0].map((header, index) => {
+    const normalized = header.trim().replace(/^\uFEFF/, '').toLowerCase()
+    if (!normalized) throw new Error(`Cột thứ ${index + 1} chưa có tên.`)
+    return normalized
+  })
+  return rows.slice(1).map((values) => Object.fromEntries(
+    headers.map((header, index) => [header, values[index] || '']),
+  ))
+}
+
+function parseImportList(value) {
+  if (Array.isArray(value)) return value
+  if (value === null || value === undefined || value === '') return []
+  const text = String(value).trim()
+  if (text.startsWith('[')) {
+    const parsed = JSON.parse(text)
+    if (!Array.isArray(parsed)) throw new Error('Danh sách phải là một mảng.')
+    return parsed
+  }
+  return text.split(/[;,|]/).map((item) => item.trim()).filter(Boolean)
+}
+
+function parseImportNumber(value, fieldName, required = false) {
+  if ((value === null || value === undefined || value === '') && !required) return null
+  const number = Number(String(value).replace(/[\s,₫]/g, ''))
+  if (!Number.isFinite(number)) throw new Error(`Giá trị ${fieldName} không hợp lệ.`)
+  return number
+}
+
+function parseImportBoolean(value, fallback = false) {
+  if (value === null || value === undefined || value === '') return fallback
+  return ['true', '1', 'yes', 'có', 'co'].includes(String(value).trim().toLowerCase())
+}
+
+function buildProductImportPayload(record) {
+  const values = Object.fromEntries(
+    Object.entries(record).map(([key, value]) => [key.trim().toLowerCase(), value]),
+  )
+  const name = String(values.name || '').trim()
+  if (!name) throw new Error('Thiếu tên sản phẩm (name).')
+
+  const categoryValue = String(values.category_id || values.category_name || values.category || '').trim()
+  const category = categories.value.find((item) =>
+    item.id === categoryValue || item.name.toLowerCase() === categoryValue.toLowerCase(),
+  )
+  if (!category) throw new Error(`Không tìm thấy danh mục "${categoryValue || '(trống)'}".`)
+
+  return {
+    name,
+    slug: values.slug ? String(values.slug).trim() : undefined,
+    description: String(values.description || ''),
+    price: parseImportNumber(values.price, 'price', true),
+    sale_price: parseImportNumber(values.sale_price, 'sale_price'),
+    category_id: category.id,
+    images: parseImportList(values.images || values.image_url),
+    colors: parseImportList(values.colors),
+    sizes: parseImportList(values.sizes),
+    variants: parseImportList(values.variants),
+    tags: parseImportList(values.tags),
+    stock: parseImportNumber(values.stock || 0, 'stock', true),
+    is_featured: parseImportBoolean(values.is_featured),
+    is_active: parseImportBoolean(values.is_active, true),
+  }
+}
+
+function openProductImport() {
+  productImportInput.value?.click()
+}
+
+async function handleProductImport(event) {
+  const file = event.target.files?.[0]
+  event.target.value = ''
+  if (!file) return
+
+  importingProducts.value = true
+  try {
+    if (categories.value.length === 0) await loadCategories()
+    const content = await file.text()
+    let records
+    if (file.name.toLowerCase().endsWith('.json')) {
+      const parsed = JSON.parse(content)
+      records = Array.isArray(parsed) ? parsed : parsed.products
+      if (!Array.isArray(records)) throw new Error('JSON phải là danh sách sản phẩm hoặc có trường products.')
+    } else {
+      records = parseCsvProducts(content)
+    }
+
+    let imported = 0
+    const failures = []
+    for (const [index, record] of records.entries()) {
+      try {
+        await productApi.create(buildProductImportPayload(record))
+        imported += 1
+      } catch (error) {
+        failures.push(`Dòng ${index + 2}: ${error.response?.data?.detail || error.message}`)
+      }
+    }
+
+    if (imported > 0) {
+      addLog('product', 'import', 'Import sản phẩm', `Đã thêm ${imported} sản phẩm từ file ${file.name}`)
+      await loadProducts()
+    }
+    const summary = `Đã import ${imported}/${records.length} sản phẩm.`
+    alert(failures.length ? `${summary}\n${failures.slice(0, 5).join('\n')}` : summary)
+  } catch (error) {
+    alert(error.response?.data?.detail || error.message || 'Không thể đọc file sản phẩm.')
+  } finally {
+    importingProducts.value = false
+  }
+}
+
 async function loadOrders() {
   const { data } = await orderApi.adminOrders()
   orders.value = data || []
@@ -1032,6 +1195,16 @@ async function loadOrders() {
 async function loadPromotions() {
   const { data } = await productApi.promotions({ active_only: false })
   promotions.value = data || []
+}
+
+async function loadFaqs() {
+  const { data } = await chatApi.faqs()
+  faqs.value = data || []
+}
+
+async function loadChatLogs() {
+  const { data } = await chatApi.chatLogs()
+  chatLogs.value = data || []
 }
 
 // ================= CRUD CATEGORY =================

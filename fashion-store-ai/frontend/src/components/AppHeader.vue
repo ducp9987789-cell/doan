@@ -42,8 +42,13 @@
 
         <!-- Bên phải: Icon xe đẩy giỏ hàng, Đăng nhập, Đăng ký -->
         <div class="header-actions">
-          <!-- Icon xe đẩy giỏ hàng -->
-          <RouterLink to="/cart" class="cart-btn" title="Xem giỏ hàng của bạn">
+          <!-- Icon xe đẩy giỏ hàng (Ẩn trên homepage theo yêu cầu, khi đăng nhập xong ẩn text chỉ giữ icon) -->
+          <RouterLink
+            v-if="route.name !== 'home' && !auth.isAdmin"
+            to="/cart"
+            class="cart-btn"
+            title="Xem giỏ hàng của bạn"
+          >
             <div class="cart-icon-wrapper">
               <!-- SVG icon xe đẩy siêu thị / shopping cart -->
               <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -53,7 +58,7 @@
               </svg>
               <span v-if="cart.itemCount > 0" class="cart-badge">{{ cart.itemCount > 99 ? '99+' : cart.itemCount }}</span>
             </div>
-            <span class="cart-label">Giỏ hàng</span>
+            <span v-if="!auth.isAuthenticated" class="cart-label">Giỏ hàng</span>
           </RouterLink>
 
           <!-- Nút tài khoản: Đăng nhập / Đăng ký hoặc Dropdown khi đã đăng nhập -->
@@ -69,7 +74,7 @@
                 <path d="M3 6h18" />
                 <path d="M16 10a4 4 0 0 1-8 0" />
               </svg>
-              <span>Đơn mua</span>
+              <span>Đơn hàng của tôi</span>
             </RouterLink>
 
             <RouterLink v-if="auth.isAdmin" to="/admin" class="user-action-link admin-badge" title="Trang quản trị">

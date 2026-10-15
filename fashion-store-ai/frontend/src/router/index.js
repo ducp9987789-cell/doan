@@ -28,6 +28,10 @@ router.beforeEach((to) => {
   if (to.meta.admin && !auth.isAdmin) {
     return { name: 'home' }
   }
+  // Nếu đã đăng nhập bằng tài khoản admin, chuyển thẳng vào trang quản trị
+  if (auth.isAdmin && (to.name === 'home' || to.name === 'login' || to.name === 'products' || to.name === 'cart' || to.name === 'checkout')) {
+    return { name: 'admin' }
+  }
   return true
 })
 

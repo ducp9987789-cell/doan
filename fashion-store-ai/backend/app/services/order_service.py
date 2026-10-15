@@ -154,7 +154,11 @@ class OrderService:
         db = get_database()
         query: dict[str, Any] = {}
         if user_id:
-            query["user_id"] = user_id
+            from bson import ObjectId
+            if ObjectId.is_valid(user_id):
+                query["$or"] = [{"user_id": str(user_id)}, {"user_id": ObjectId(user_id)}]
+            else:
+                query["user_id"] = str(user_id)
         cursor = db.orders.find(query).sort("created_at", -1)
         return [serialize_doc(doc) for doc in await cursor.to_list(length=200)]
 
@@ -164,7 +168,7 @@ class OrderService:
         doc = await db.orders.find_one({"_id": to_object_id(order_id)})
         if not doc:
             raise HTTPException(status_code=404, detail="Order not found")
-        if not is_admin and doc["user_id"] != user_id:
+        if not is_admin and str(doc.get("user_id")) != str(user_id):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
         return serialize_doc(doc)
 

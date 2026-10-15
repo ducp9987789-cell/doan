@@ -1,17 +1,12 @@
 <template>
   <div class="chat-root">
-    <!-- Nút mở Chatbot AI Stylist ở góc phải màn hình -->
-    <button class="chat-toggle" @click="open = !open" title="Trò chuyện cùng AI Stylist">
-      <div class="toggle-icon">
-        <svg v-if="!open" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-        </svg>
-        <svg v-else viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="18" y1="6" x2="6" y2="18"></line>
-          <line x1="6" y1="6" x2="18" y2="18"></line>
-        </svg>
-      </div>
-      <span class="toggle-text">{{ open ? 'Đóng chat' : 'AI Stylist' }}</span>
+    <!-- Nút mở Chatbot AI Stylist ở góc phải màn hình (hình 🤖 bao tròn) -->
+    <button class="chat-toggle" @click="open = !open" :title="open ? 'Đóng hộp thoại AI Stylist' : 'Trò chuyện cùng AI Stylist'">
+      <span v-if="!open" class="bot-icon">🤖</span>
+      <svg v-else viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
+      </svg>
       <span v-if="!open" class="online-dot"></span>
     </button>
 
@@ -160,43 +155,53 @@ async function send(preset) {
 }
 
 .chat-toggle {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  justify-content: center;
   border: 0;
-  border-radius: 999px;
-  padding: 0.85rem 1.4rem;
+  padding: 0;
   background: var(--accent);
   color: #ffffff;
-  font-weight: 700;
-  font-size: 0.95rem;
   cursor: pointer;
-  box-shadow: 0 8px 24px rgba(17, 75, 67, 0.35);
-  transition: all 0.25s ease;
+  box-shadow: 0 8px 24px rgba(17, 75, 67, 0.4);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
 }
 
 .chat-toggle:hover {
   background: var(--accent-hover);
-  transform: translateY(-2px);
-  box-shadow: 0 12px 28px rgba(17, 75, 67, 0.45);
+  transform: translateY(-3px) scale(1.06);
+  box-shadow: 0 12px 30px rgba(17, 75, 67, 0.5);
+}
+
+.bot-icon {
+  font-size: 30px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
 }
 
 .online-dot {
-  width: 9px;
-  height: 9px;
-  background: #4caf50;
+  width: 12px;
+  height: 12px;
+  background: #22c55e;
   border: 2px solid #ffffff;
   border-radius: 50%;
   position: absolute;
-  top: 8px;
-  right: 12px;
+  top: 2px;
+  right: 2px;
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.8);
 }
 
 .chat-panel {
   position: absolute;
   right: 0;
-  bottom: 4.2rem;
+  bottom: 4.8rem;
   width: min(420px, calc(100vw - 2rem));
   background: #ffffff;
   border-radius: 20px;
