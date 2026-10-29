@@ -59,8 +59,24 @@ class GeminiEmbeddingProvider(EmbeddingProvider):
 
             genai.configure(api_key=self.api_key)
             embeddings = []
+            # Try gemini-embedding-001 first, fallback to gemini-embedding-2
+            candidate_models = ["models/gemini-embedding-001", "models/gemini-embedding-2"]
+            used_model = None
+
+            for m in candidate_models:
+                try:
+                    res = genai.embed_content(model=m, content=texts[0])
+                    if "embedding" in res:
+                        used_model = m
+                        break
+                except Exception:
+                    continue
+
+            if not used_model:
+                used_model = "models/gemini-embedding-001"
+
             for text in texts:
-                result = genai.embed_content(model="models/text-embedding-004", content=text)
+                result = genai.embed_content(model=used_model, content=text)
                 embeddings.append(result["embedding"])
             return embeddings
         except Exception as exc:  # noqa: BLE001
@@ -78,6 +94,8 @@ def get_embedding_provider(
     name = provider.lower()
     if name == "openai" and openai_api_key:
         return OpenAIEmbeddingProvider(openai_api_key, openai_embedding_model)
-    if name == "gemini" and gemini_api_key:
+    if (name == "gemini" or not openai_api_key) and gemini_api_key:
         return GeminiEmbeddingProvider(gemini_api_key)
+    if openai_api_key:
+        return OpenAIEmbeddingProvider(openai_api_key, openai_embedding_model)
     return LocalEmbeddingProvider()

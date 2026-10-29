@@ -9,20 +9,39 @@
       </div>
 
       <div class="toolbar-right">
+        <!-- Slot cho các nút hành động bổ sung (ví dụ nút Import...) -->
         <slot name="toolbar-actions" />
+
+        <!-- Nút thêm mới đặt cạnh nút tải lại -->
+        <button
+          v-if="showAdd"
+          type="button"
+          class="btn-table-add"
+          @click="$emit('add')"
+          :title="addText"
+        >
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          <span>{{ addText }}</span>
+        </button>
+
+        <!-- Nút tải lại với hiệu ứng hover và feedback tương tác rõ rệt khi bấm -->
         <button
           v-if="showReload"
           type="button"
           class="btn-table-reload"
-          @click="$emit('reload')"
-          :disabled="loading"
+          :class="{ 'is-reloading': isReloading || loading, 'is-clicked': justClicked }"
+          @click="handleReloadClick"
+          :disabled="loading || isReloading"
           title="Tải lại danh sách"
         >
-          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" :class="{ 'spin-icon': loading }">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" :class="{ 'spin-icon': isReloading || loading }">
             <path d="M23 4v6h-6M1 20v-6h6"></path>
             <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
           </svg>
-          <span>Tải lại</span>
+          <span>{{ isReloading || loading ? 'Đang tải...' : justClicked ? 'Đã tải lại ✓' : 'Tải lại' }}</span>
         </button>
       </div>
     </div>
@@ -227,12 +246,41 @@ const props = defineProps({
   rows: { type: Array, required: true },
   loading: { type: Boolean, default: false },
   showReload: { type: Boolean, default: true },
+  showAdd: { type: Boolean, default: false },
+  addText: { type: String, default: 'Thêm mới' },
   emptyText: { type: String, default: 'Chưa có bản ghi nào' },
   defaultSortKey: { type: String, default: '' },
   defaultSortOrder: { type: String, default: 'desc' },
 })
 
-defineEmits(['reload'])
+const emit = defineEmits(['reload', 'add'])
+
+const isReloading = ref(false)
+const justClicked = ref(false)
+
+function handleReloadClick() {
+  if (isReloading.value || props.loading) return
+  isReloading.value = true
+  justClicked.value = true
+  emit('reload')
+  setTimeout(() => {
+    justClicked.value = false
+    if (!props.loading) {
+      isReloading.value = false
+    }
+  }, 1200)
+}
+
+watch(
+  () => props.loading,
+  (newVal) => {
+    if (!newVal) {
+      setTimeout(() => {
+        isReloading.value = false
+      }, 300)
+    }
+  }
+)
 
 const columnFilters = reactive({})
 const sortKey = ref(props.defaultSortKey)
@@ -405,6 +453,35 @@ watch(columnFilters, () => {
   margin-left: auto;
 }
 
+.btn-table-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.95rem;
+  background: var(--accent);
+  color: #ffffff;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(17, 75, 67, 0.2);
+  user-select: none;
+}
+
+.btn-table-add:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(17, 75, 67, 0.25);
+}
+
+.btn-table-add:active {
+  transform: translateY(0);
+}
+
+/* Nút tải lại với hiệu ứng hover và phản hồi khi click cực rõ */
 .btn-table-reload {
   display: inline-flex;
   align-items: center;
@@ -417,19 +494,72 @@ watch(columnFilters, () => {
   font-weight: 600;
   color: var(--ink);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: var(--shadow-sm);
+  user-select: none;
 }
 
 .btn-table-reload:hover:not(:disabled) {
-  background: #f4f6f8;
+  background: #f0f7f4;
+  border-color: var(--accent);
+  color: var(--accent);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(17, 75, 67, 0.12);
+}
+
+.btn-table-reload:hover:not(:disabled) svg {
+  transform: rotate(45deg);
+  transition: transform 0.25s ease;
+}
+
+.btn-table-reload:active:not(:disabled),
+.btn-table-reload.is-clicked {
+  background: #e2f1ec;
+  border-color: var(--accent);
+  color: var(--accent);
+  transform: scale(0.95);
+  box-shadow: inset 0 2px 4px rgba(17, 75, 67, 0.2);
+}
+
+.btn-table-reload.is-reloading {
+  background: #f2f9f6;
   border-color: var(--accent);
   color: var(--accent);
 }
 
 .btn-table-reload:disabled {
-  opacity: 0.6;
+  opacity: 0.7;
   cursor: not-allowed;
+}
+
+/* Nút Import file trong toolbar */
+:deep(.btn-table-import) {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.95rem;
+  background: #fdfbf7;
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--shadow-sm);
+  user-select: none;
+}
+
+:deep(.btn-table-import:hover) {
+  background: #f3efe6;
+  border-color: var(--accent);
+  color: var(--accent);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
+}
+
+:deep(.btn-table-import:active) {
+  transform: translateY(0);
 }
 
 .spin-icon {

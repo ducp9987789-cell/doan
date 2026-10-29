@@ -23,12 +23,15 @@ def get_llm_provider(
     openai_api_key: str = "",
     openai_model: str = "gpt-4o-mini",
     gemini_api_key: str = "",
-    gemini_model: str = "gemini-1.5-flash",
+    gemini_model: str = "gemini-3.5-flash",
 ) -> LLMProvider:
     name = provider.lower()
     if name == "openai" and openai_api_key:
         return OpenAILLM(openai_api_key, openai_model)
-    if name == "gemini" and gemini_api_key:
+    if (name == "gemini" or not openai_api_key) and gemini_api_key:
         return GeminiLLM(gemini_api_key, gemini_model)
+    if openai_api_key:
+        return OpenAILLM(openai_api_key, openai_model)
     logger.info("No LLM API key configured, using fallback demo mode")
     return FallbackLLM()
+

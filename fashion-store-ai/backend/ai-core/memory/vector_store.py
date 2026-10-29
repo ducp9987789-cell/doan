@@ -48,17 +48,35 @@ class VectorStore:
         texts = [doc["text"] for doc in documents]
         metadatas = [doc.get("metadata") or {} for doc in documents]
         embeddings = await self.embedding_provider.embed(texts)
-        self.collection.upsert(ids=ids, documents=texts, metadatas=metadatas, embeddings=embeddings)
+        try:
+            self.collection.upsert(ids=ids, documents=texts, metadatas=metadatas, embeddings=embeddings)
+        except Exception as exc:
+            if "dimension" in str(exc).lower():
+                logger.warning("Embedding dimension mismatch in Chroma collection (%s). Recreating collection with new dimensionality...", exc)
+                try:
+                    self.client.delete_collection(self.collection_name)
+                except Exception:
+                    pass
+                self._collection = None
+                self.collection.upsert(ids=ids, documents=texts, metadatas=metadatas, embeddings=embeddings)
+            else:
+                raise
         return len(documents)
 
     async def query(self, query: str, n_results: int = 5) -> list[dict[str, Any]]:
         if self.collection.count() == 0:
             return []
-        embeddings = await self.embedding_provider.embed([query])
-        result = self.collection.query(
-            query_embeddings=embeddings,
-            n_results=min(n_results, self.collection.count()),
-        )
+        try:
+            embeddings = await self.embedding_provider.embed([query])
+            result = self.collection.query(
+                query_embeddings=embeddings,
+                n_results=min(n_results, self.collection.count()),
+            )
+        except Exception as exc:
+            if "dimension" in str(exc).lower():
+                logger.warning("Embedding dimension mismatch during query (%s). Returning empty.", exc)
+                return []
+            raise
         docs: list[dict[str, Any]] = []
         documents = result.get("documents") or [[]]
         metadatas = result.get("metadatas") or [[]]

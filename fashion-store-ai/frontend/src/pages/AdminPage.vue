@@ -150,11 +150,6 @@
             <h1 class="page-title">📂 Quản lý danh mục sản phẩm</h1>
             <p class="page-desc">Tạo và quản lý các danh mục thời trang (Áo, Quần, Váy, Áo khoác, Giày dép, Phụ kiện...).</p>
           </div>
-          <div class="action-buttons">
-            <button class="btn" @click="openCreateCategoryModal">
-              ➕ Thêm mới
-            </button>
-          </div>
         </div>
 
         <!-- Bảng danh mục với filter từng cột -->
@@ -163,6 +158,8 @@
             :columns="categoryColumns"
             :rows="categories"
             :loading="loading"
+            showAdd
+            @add="openCreateCategoryModal"
             emptyText="Chưa có danh mục nào."
             @reload="loadCategories"
           >
@@ -204,32 +201,23 @@
 
         <!-- Bảng sản phẩm với filter từng cột -->
         <div class="panel mb-4">
-          <input
-            ref="productImportInput"
-            type="file"
-            accept=".csv,.json,text/csv,application/json"
-            hidden
-            @change="handleProductImport"
-          />
           <AdminDataTable
             :columns="productColumns"
             :rows="products"
             :loading="loading"
+            showAdd
+            @add="openCreateProductModal"
             emptyText="Chưa có sản phẩm nào."
             @reload="loadProducts"
           >
             <template #toolbar-actions>
               <button
-                class="btn secondary btn-sm"
+                class="btn-table-import"
                 type="button"
-                :disabled="importingProducts"
-                title="Import sản phẩm từ file CSV hoặc JSON"
-                @click="openProductImport"
+                title="Import sản phẩm từ file (Excel, Word, CSV, TXT...)"
+                @click="openImportModal"
               >
-                {{ importingProducts ? '⏳ Đang import...' : '📥 Import' }}
-              </button>
-              <button class="btn btn-sm" type="button" @click="openCreateProductModal">
-                ➕ Thêm mới
+                📥 Import file
               </button>
             </template>
 
@@ -350,11 +338,6 @@
             <h1 class="page-title">🎁 Quản lý mã khuyến mãi & Voucher</h1>
             <p class="page-desc">Tạo mã ưu đãi giảm giá theo phần trăm hoặc số tiền cố định cho khách hàng.</p>
           </div>
-          <div class="action-buttons">
-            <button class="btn" @click="openCreatePromoModal">
-              ➕ Thêm mới
-            </button>
-          </div>
         </div>
 
         <!-- Bảng khuyến mãi -->
@@ -363,6 +346,8 @@
             :columns="promoColumns"
             :rows="promotions"
             :loading="loading"
+            showAdd
+            @add="openCreatePromoModal"
             emptyText="Chưa có mã khuyến mãi nào."
             @reload="loadPromotions"
           >
@@ -478,9 +463,6 @@
             <p class="page-desc">Quản lý các câu hỏi thường gặp (FAQs), đồng bộ dữ liệu Vector DB (ChromaDB) và xem nhật ký hội thoại của khách.</p>
           </div>
           <div class="action-buttons">
-            <button class="btn" @click="openCreateFaqModal">
-              ➕ Thêm mới
-            </button>
             <button class="btn btn-reindex" :disabled="reindexing" @click="handleReindex">
               {{ reindexing ? '⏳ Đang đồng bộ...' : '⚡ Đồng bộ dữ liệu AI (ChromaDB)' }}
             </button>
@@ -499,6 +481,8 @@
             :columns="faqColumns"
             :rows="faqs"
             :loading="loading"
+            showAdd
+            @add="openCreateFaqModal"
             emptyText="Chưa có câu hỏi FAQ nào."
             @reload="loadFaqs"
           >
@@ -775,12 +759,200 @@
         <button class="btn" type="button" @click="showOrderModal = false">Đóng</button>
       </template>
     </AdminModal>
+
+    <!-- MODAL 6: NHẬP SẢN PHẨM TỪ FILE (EXCEL, WORD, CSV, TXT...) -->
+    <AdminModal
+      :show="showImportModal"
+      title="Nhập sản phẩm từ file (Excel, Word, CSV, TXT...)"
+      icon="📥"
+      maxWidth="860px"
+      @close="closeImportModal"
+    >
+      <div class="import-modal-body">
+        <!-- Thanh tải mẫu chuẩn -->
+        <div class="import-templates-bar">
+          <span class="templates-label">💡 Tải file mẫu chuẩn:</span>
+          <div class="template-btns">
+            <button type="button" class="btn-sample-dl excel" @click="downloadSampleExcel" title="Tải mẫu Excel">
+              📊 Mẫu Excel (.xlsx)
+            </button>
+            <button type="button" class="btn-sample-dl csv" @click="downloadSampleCsv" title="Tải mẫu CSV">
+              📄 Mẫu CSV (.csv)
+            </button>
+            <button type="button" class="btn-sample-dl doc" @click="downloadSampleTxt" title="Tải mẫu Word/TXT">
+              📝 Mẫu Word / TXT
+            </button>
+          </div>
+        </div>
+
+        <!-- Vùng kéo thả hoặc bấm tải file -->
+        <div
+          class="import-dropzone"
+          :class="{ 'is-dragover': isDragOver, 'has-file': !!importFileName }"
+          @dragover.prevent="isDragOver = true"
+          @dragleave.prevent="isDragOver = false"
+          @drop.prevent="handleFileDrop"
+          @click="triggerFileInput"
+        >
+          <input
+            ref="importFileInputRef"
+            type="file"
+            accept=".xlsx,.xls,.csv,.txt,.docx,.doc,.json,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword,application/json"
+            hidden
+            @change="handleFileInputChange"
+          />
+
+          <div v-if="!importFileName" class="dropzone-empty">
+            <div class="dropzone-icon">📁</div>
+            <div class="dropzone-text">
+              <strong>Kéo thả file vào đây hoặc bấm để duyệt file từ máy tính</strong>
+              <p>Hỗ trợ đầy đủ các định dạng: <code>.xlsx</code>, <code>.xls</code>, <code>.docx</code>, <code>.doc</code>, <code>.csv</code>, <code>.txt</code>, <code>.json</code></p>
+            </div>
+          </div>
+
+          <div v-else class="dropzone-file-info">
+            <div class="file-icon-badge">{{ getFileBadge(importFileName) }}</div>
+            <div class="file-text-details">
+              <strong>{{ importFileName }}</strong>
+              <small>{{ formatFileSize(importFile?.size) }} · Định dạng {{ importFileType.toUpperCase() }}</small>
+            </div>
+            <button type="button" class="btn-change-file" @click.stop="triggerFileInput">
+              Đổi file khác
+            </button>
+          </div>
+        </div>
+
+        <!-- Loading khi đang phân tích file -->
+        <div v-if="importParsing" class="import-loading-state">
+          <div class="spinner-sm"></div>
+          <span>Đang đọc và phân tích cấu trúc dữ liệu từ file...</span>
+        </div>
+
+        <!-- Thông báo lỗi khi đọc file -->
+        <div v-if="importErrorMsg" class="alert-error-box">
+          <strong>⚠️ Thông báo:</strong>
+          <pre>{{ importErrorMsg }}</pre>
+        </div>
+
+        <!-- Thông báo thành công -->
+        <div v-if="importSuccessMsg" class="alert-success-box">
+          <strong>✓ Hoàn tất:</strong> {{ importSuccessMsg }}
+        </div>
+
+        <!-- Tùy chọn cấu hình danh mục mặc định & Kết quả phân tích -->
+        <div v-if="parsedProducts.length > 0 && !importParsing" class="parsed-results-section">
+          <div class="import-config-row">
+            <div class="config-field">
+              <label>Danh mục mặc định (nếu dòng trong file để trống hoặc chưa khớp):</label>
+              <select v-model="defaultImportCategoryId" @change="revalidateParsedProducts">
+                <option v-for="cat in categories" :key="cat.id" :value="cat.id">
+                  {{ cat.name }}
+                </option>
+              </select>
+            </div>
+
+            <div class="import-stats">
+              <span class="stat-item total">Tổng cộng: <strong>{{ parsedProducts.length }}</strong></span>
+              <span class="stat-item valid">Hợp lệ: <strong>{{ validProductsCount }}</strong></span>
+              <span v-if="invalidProductsCount > 0" class="stat-item invalid">Chưa hợp lệ: <strong>{{ invalidProductsCount }}</strong></span>
+            </div>
+          </div>
+
+          <!-- Bảng xem trước dữ liệu trích xuất -->
+          <div class="preview-table-container">
+            <div class="preview-table-header">
+              <span>Xem trước danh sách sản phẩm trích xuất được từ file:</span>
+            </div>
+            <div class="preview-table-scroll">
+              <table class="preview-table">
+                <thead>
+                  <tr>
+                    <th style="width: 40px">#</th>
+                    <th>Tên sản phẩm</th>
+                    <th>Danh mục</th>
+                    <th>Giá niêm yết</th>
+                    <th>Giá khuyến mãi</th>
+                    <th>Tồn kho</th>
+                    <th>Màu / Size</th>
+                    <th style="width: 120px">Trạng thái</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="(item, idx) in parsedProducts"
+                    :key="idx"
+                    :class="{ 'row-invalid': !item.isValid }"
+                  >
+                    <td>{{ idx + 1 }}</td>
+                    <td>
+                      <strong>{{ item.name || '—' }}</strong>
+                      <div v-if="item.description" class="preview-desc-sub">{{ item.description }}</div>
+                    </td>
+                    <td>
+                      <span :class="{ 'text-danger': !item.categoryId }">
+                        {{ item.categoryName }}
+                      </span>
+                    </td>
+                    <td><strong>{{ formatPrice(item.price) }}</strong></td>
+                    <td>{{ item.sale_price ? formatPrice(item.sale_price) : '—' }}</td>
+                    <td>{{ item.stock }}</td>
+                    <td>
+                      <small v-if="item.colors?.length">Màu: {{ item.colors.join(', ') }}</small>
+                      <small v-if="item.sizes?.length" class="d-block">Size: {{ item.sizes.join(', ') }}</small>
+                    </td>
+                    <td>
+                      <span v-if="item.isValid" class="badge-pill badge-success">✓ Hợp lệ</span>
+                      <span v-else class="badge-pill badge-error" :title="item.errors.join('; ')">⚠️ {{ item.errors[0] }}</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Thanh tiến trình khi đang thực hiện import -->
+        <div v-if="importExecuting" class="import-progress-box">
+          <div class="progress-bar-track">
+            <div
+              class="progress-bar-fill"
+              :style="{ width: `${(importProgress.current / Math.max(1, importProgress.total)) * 100}%` }"
+            ></div>
+          </div>
+          <div class="progress-info-text">
+            <span>Đang lưu sản phẩm vào hệ thống... ({{ importProgress.current }} / {{ importProgress.total }})</span>
+            <strong>{{ Math.round((importProgress.current / Math.max(1, importProgress.total)) * 100) }}%</strong>
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <button
+          class="btn secondary"
+          type="button"
+          :disabled="importExecuting"
+          @click="closeImportModal"
+        >
+          Hủy bỏ
+        </button>
+        <button
+          class="btn"
+          type="button"
+          :disabled="parsedProducts.length === 0 || validProductsCount === 0 || importExecuting || importParsing"
+          @click="executeImport"
+        >
+          {{ importExecuting ? `Đang nhập (${importProgress.current}/${importProgress.total})...` : `🚀 Bắt đầu Import (${validProductsCount} sản phẩm)` }}
+        </button>
+      </template>
+    </AdminModal>
   </div>
 </template>
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import * as XLSX from 'xlsx'
+import JSZip from 'jszip'
 import AdminActivityLog from '../components/admin/AdminActivityLog.vue'
 import AdminDataTable from '../components/admin/AdminDataTable.vue'
 import AdminModal from '../components/admin/AdminModal.vue'
@@ -812,8 +984,29 @@ const orders = ref([])
 const promotions = ref([])
 const faqs = ref([])
 const chatLogs = ref([])
-const productImportInput = ref(null)
-const importingProducts = ref(false)
+
+// Trạng thái Import sản phẩm từ file
+const showImportModal = ref(false)
+const importFileInputRef = ref(null)
+const importFile = ref(null)
+const importFileName = ref('')
+const importFileType = ref('')
+const isDragOver = ref(false)
+const importParsing = ref(false)
+const importExecuting = ref(false)
+const importProgress = ref({ current: 0, total: 0 })
+const parsedProducts = ref([])
+const defaultImportCategoryId = ref('')
+const importErrorMsg = ref('')
+const importSuccessMsg = ref('')
+
+const validProductsCount = computed(() => {
+  return parsedProducts.value.filter((p) => p.isValid).length
+})
+
+const invalidProductsCount = computed(() => {
+  return parsedProducts.value.filter((p) => !p.isValid).length
+})
 
 // Trạng thái modal
 const showCategoryModal = ref(false)
@@ -1042,48 +1235,259 @@ async function loadProducts() {
   products.value = data.items || []
 }
 
-function parseCsvProducts(text) {
-  const rows = []
-  let row = []
-  let field = ''
-  let insideQuotes = false
+// ================= IMPORT SẢN PHẨM TỪ FILE (XLSX, CSV, DOCX, DOC, TXT, JSON) =================
+function openImportModal() {
+  importFile.value = null
+  importFileName.value = ''
+  importFileType.value = ''
+  parsedProducts.value = []
+  importErrorMsg.value = ''
+  importSuccessMsg.value = ''
+  defaultImportCategoryId.value = categories.value[0]?.id || ''
+  showImportModal.value = true
+}
 
-  for (let index = 0; index < text.length; index += 1) {
-    const character = text[index]
-    if (character === '"') {
-      if (insideQuotes && text[index + 1] === '"') {
-        field += '"'
-        index += 1
-      } else {
-        insideQuotes = !insideQuotes
-      }
-    } else if (character === ',' && !insideQuotes) {
-      row.push(field)
-      field = ''
-    } else if ((character === '\n' || character === '\r') && !insideQuotes) {
-      row.push(field)
-      if (row.some((value) => value.trim())) rows.push(row)
-      row = []
-      field = ''
-      if (character === '\r' && text[index + 1] === '\n') index += 1
-    } else {
-      field += character
+function closeImportModal() {
+  if (importExecuting.value) return
+  showImportModal.value = false
+}
+
+function triggerFileInput() {
+  if (importExecuting.value) return
+  importFileInputRef.value?.click()
+}
+
+function handleFileInputChange(event) {
+  const file = event.target.files?.[0]
+  event.target.value = ''
+  if (file) {
+    onFileSelected(file)
+  }
+}
+
+function handleFileDrop(event) {
+  isDragOver.value = false
+  if (importExecuting.value) return
+  const file = event.dataTransfer.files?.[0]
+  if (file) {
+    onFileSelected(file)
+  }
+}
+
+function getFileBadge(filename) {
+  if (!filename) return 'FILE'
+  const ext = filename.slice(filename.lastIndexOf('.')).toLowerCase()
+  if (['.xlsx', '.xls'].includes(ext)) return '📊 EXCEL'
+  if (ext === '.csv') return '📄 CSV'
+  if (['.docx', '.doc'].includes(ext)) return '📝 WORD'
+  if (ext === '.txt') return '📋 TXT'
+  if (ext === '.json') return '{ } JSON'
+  return '📁 FILE'
+}
+
+function formatFileSize(bytes) {
+  if (!bytes) return '0 B'
+  if (bytes < 1024) return bytes + ' B'
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+}
+
+// Download file mẫu
+function downloadSampleExcel() {
+  const sampleData = [
+    {
+      'Tên sản phẩm': 'Áo Sơ Mi Nam Oxford Trắng',
+      'Danh mục': 'Áo',
+      'Giá bán': 350000,
+      'Giá khuyến mãi': 299000,
+      'Số lượng tồn': 100,
+      'Màu sắc': 'Trắng, Xanh nhạt',
+      'Kích cỡ': 'S, M, L, XL',
+      'Link hình ảnh': 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=800',
+      'Mô tả chi tiết': 'Chất vải oxford cao cấp, dày dặn đứng form, thoáng mát.',
+      'Nổi bật (1/0)': 1,
+    },
+    {
+      'Tên sản phẩm': 'Quần Tây Âu Slimfit Đen',
+      'Danh mục': 'Quần',
+      'Giá bán': 420000,
+      'Giá khuyến mãi': 380000,
+      'Số lượng tồn': 80,
+      'Màu sắc': 'Đen, Xám đậm',
+      'Kích cỡ': '29, 30, 31, 32',
+      'Link hình ảnh': 'https://images.unsplash.com/photo-1473966968600-fa801b869a1a?w=800',
+      'Mô tả chi tiết': 'Quần tây co giãn nhẹ, giữ ly tốt, lịch lãm phong cách công sở.',
+      'Nổi bật (1/0)': 0,
+    },
+    {
+      'Tên sản phẩm': 'Đầm Maxi Họa Tiết Hoa Nhí',
+      'Danh mục': 'Váy',
+      'Giá bán': 490000,
+      'Giá khuyến mãi': 420000,
+      'Số lượng tồn': 50,
+      'Màu sắc': 'Be hoa nhí, Vàng pastel',
+      'Kích cỡ': 'S, M, L',
+      'Link hình ảnh': 'https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?w=800',
+      'Mô tả chi tiết': 'Váy voan tơ 2 lớp bồng bềnh, thích hợp đi tiệc hoặc du lịch dạo phố.',
+      'Nổi bật (1/0)': 1,
+    },
+  ]
+
+  const ws = XLSX.utils.json_to_sheet(sampleData)
+  ws['!cols'] = [
+    { wch: 30 },
+    { wch: 15 },
+    { wch: 14 },
+    { wch: 16 },
+    { wch: 14 },
+    { wch: 20 },
+    { wch: 15 },
+    { wch: 35 },
+    { wch: 45 },
+    { wch: 14 },
+  ]
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'DanhSachSanPham')
+  XLSX.writeFile(wb, 'mau_import_san_pham.xlsx')
+}
+
+function downloadSampleCsv() {
+  const headers = ['name', 'category', 'price', 'sale_price', 'stock', 'colors', 'sizes', 'image_url', 'description', 'is_featured']
+  const rows = [
+    ['Áo Polo Nam Classic Pique', 'Áo', '280000', '249000', '120', 'Trắng; Đen; Xanh navy', 'M; L; XL', 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?w=800', 'Chất thun cá sấu cotton 100% thoáng mát', '1'],
+    ['Quần Jean Ống Suông Vintage', 'Quần', '450000', '399000', '65', 'Xanh retro; Xanh đậm', '28; 29; 30; 31; 32', 'https://images.unsplash.com/photo-1542272604-780c96856592?w=800', 'Jean denim dày dặn không bai dão', '0'],
+    ['Túi Xách Da Kẹp Nách Sang Trọng', 'Túi', '550000', '480000', '40', 'Đen; Trắng ngà', 'Freesize', 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=800', 'Da PU mềm cao cấp chống trầy xước', '1'],
+  ]
+  const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(','))].join('\n')
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const link = document.createElement('a')
+  link.href = URL.createObjectURL(blob)
+  link.setAttribute('download', 'mau_import_san_pham.csv')
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+}
+
+function downloadSampleTxt() {
+  const content = `# HƯỚNG DẪN IMPORT SẢN PHẨM TỪ FILE TEXT / WORD
+# Định dạng mỗi dòng: Tên sản phẩm | Danh mục | Giá bán | Giá khuyến mãi | Tồn kho | Màu sắc | Kích cỡ | Link ảnh | Mô tả
+# (Phân cách bởi dấu gạch đứng | hoặc dấu phẩy hoặc tab)
+
+Áo Sơ Mi Nam Oxford Trắng | Áo | 350000 | 299000 | 100 | Trắng, Xanh nhạt | S, M, L, XL | https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=800 | Chất vải oxford cao cấp, dày dặn đứng form
+Quần Tây Âu Slimfit Đen | Quần | 420000 | 380000 | 80 | Đen, Xám đậm | 29, 30, 31, 32 | https://images.unsplash.com/photo-1473966968600-fa801b869a1a?w=800 | Quần tây co giãn nhẹ, giữ ly tốt
+Đầm Maxi Họa Tiết Hoa Nhí | Váy | 490000 | 420000 | 50 | Be hoa nhí | S, M, L | https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?w=800 | Váy voan tơ 2 lớp bồng bềnh
+`
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8;' })
+  const link = document.createElement('a')
+  link.href = URL.createObjectURL(blob)
+  link.setAttribute('download', 'mau_import_san_pham.txt')
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+}
+
+// Helper trích xuất text XML từ node docx
+function extractTextFromNode(node) {
+  const textNodes = node.getElementsByTagName('w:t')
+  let result = ''
+  for (let i = 0; i < textNodes.length; i++) {
+    result += textNodes[i].textContent
+  }
+  return result.trim()
+}
+
+async function parseDocxFile(file) {
+  const zip = await JSZip.loadAsync(file)
+  const docXml = await zip.file('word/document.xml')?.async('text')
+  if (!docXml) throw new Error('File Word .docx không hợp lệ hoặc không tìm thấy nội dung văn bản.')
+
+  const parser = new DOMParser()
+  const xmlDoc = parser.parseFromString(docXml, 'application/xml')
+
+  // Ưu tiên đọc bảng (w:tbl) nếu có trong Word
+  const tables = xmlDoc.getElementsByTagName('w:tbl')
+  if (tables.length > 0) {
+    const table = tables[0]
+    const trElements = table.getElementsByTagName('w:tr')
+    if (trElements.length < 2) {
+      throw new Error('Bảng trong file Word cần ít nhất 1 dòng tiêu đề và 1 dòng dữ liệu.')
     }
+
+    const headerCells = trElements[0].getElementsByTagName('w:tc')
+    const headers = []
+    for (let c = 0; c < headerCells.length; c++) {
+      headers.push(extractTextFromNode(headerCells[c]))
+    }
+
+    const records = []
+    for (let r = 1; r < trElements.length; r++) {
+      const cells = trElements[r].getElementsByTagName('w:tc')
+      const rowObj = {}
+      for (let c = 0; c < cells.length; c++) {
+        const key = headers[c] || `col_${c}`
+        rowObj[key] = extractTextFromNode(cells[c])
+      }
+      if (Object.values(rowObj).some((v) => String(v).trim())) {
+        records.push(rowObj)
+      }
+    }
+    return records
   }
 
-  if (insideQuotes) throw new Error('File CSV có dấu ngoặc kép chưa đóng.')
-  row.push(field)
-  if (row.some((value) => value.trim())) rows.push(row)
-  if (rows.length < 2) throw new Error('File CSV không có dữ liệu sản phẩm.')
+  // Nếu không có bảng, đọc các đoạn văn (w:p)
+  const paragraphs = xmlDoc.getElementsByTagName('w:p')
+  const lines = []
+  for (let p = 0; p < paragraphs.length; p++) {
+    const text = extractTextFromNode(paragraphs[p]).trim()
+    if (text && !text.startsWith('#')) {
+      lines.push(text)
+    }
+  }
+  return parseDelimitedText(lines.join('\n'))
+}
 
-  const headers = rows[0].map((header, index) => {
-    const normalized = header.trim().replace(/^\uFEFF/, '').toLowerCase()
-    if (!normalized) throw new Error(`Cột thứ ${index + 1} chưa có tên.`)
-    return normalized
-  })
-  return rows.slice(1).map((values) => Object.fromEntries(
-    headers.map((header, index) => [header, values[index] || '']),
-  ))
+async function parseDocFile(file) {
+  const text = await file.text()
+  const cleanLines = text
+    .split(/[\r\n]+/)
+    .map((line) => line.replace(/[^\x20-\x7E\u00A0-\u024F\u1EA0-\u1EF9]/g, ' ').trim())
+    .filter((line) => line.length > 8 && (line.includes('|') || line.includes(',') || line.includes('\t')))
+
+  if (cleanLines.length > 0) {
+    return parseDelimitedText(cleanLines.join('\n'))
+  }
+  throw new Error('Định dạng .doc đời cũ không chứa cấu trúc bảng rõ ràng. Quý khách vui lòng chuyển sang .docx, .xlsx hoặc .csv để nhận diện chính xác nhất.')
+}
+
+function parseDelimitedText(text) {
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !l.startsWith('#'))
+  if (lines.length === 0) return []
+
+  const firstLine = lines[0]
+  let delimiter = '|'
+  if (firstLine.includes('|')) delimiter = '|'
+  else if (firstLine.includes('\t')) delimiter = '\t'
+  else if (firstLine.includes(';')) delimiter = ';'
+  else if (firstLine.includes(',')) delimiter = ','
+
+  const hasHeader = /tên|name|danh mục|category|giá|price/i.test(firstLine)
+  const headerTokens = hasHeader
+    ? lines[0].split(delimiter).map((t) => t.trim())
+    : ['name', 'category', 'price', 'sale_price', 'stock', 'colors', 'sizes', 'image_url', 'description', 'is_featured']
+
+  const dataLines = hasHeader ? lines.slice(1) : lines
+  const records = []
+
+  for (const line of dataLines) {
+    const parts = line.split(delimiter).map((p) => p.trim())
+    if (parts.length === 0 || !parts.some(Boolean)) continue
+    const obj = {}
+    headerTokens.forEach((key, idx) => {
+      obj[key] = parts[idx] || ''
+    })
+    records.push(obj)
+  }
+  return records
 }
 
 function parseImportList(value) {
@@ -1091,17 +1495,18 @@ function parseImportList(value) {
   if (value === null || value === undefined || value === '') return []
   const text = String(value).trim()
   if (text.startsWith('[')) {
-    const parsed = JSON.parse(text)
-    if (!Array.isArray(parsed)) throw new Error('Danh sách phải là một mảng.')
-    return parsed
+    try {
+      const parsed = JSON.parse(text)
+      if (Array.isArray(parsed)) return parsed
+    } catch {}
   }
   return text.split(/[;,|]/).map((item) => item.trim()).filter(Boolean)
 }
 
 function parseImportNumber(value, fieldName, required = false) {
   if ((value === null || value === undefined || value === '') && !required) return null
-  const number = Number(String(value).replace(/[\s,₫]/g, ''))
-  if (!Number.isFinite(number)) throw new Error(`Giá trị ${fieldName} không hợp lệ.`)
+  const number = Number(String(value).replace(/[\s,₫\.]/g, ''))
+  if (!Number.isFinite(number)) return required ? 0 : null
   return number
 }
 
@@ -1110,80 +1515,201 @@ function parseImportBoolean(value, fallback = false) {
   return ['true', '1', 'yes', 'có', 'co'].includes(String(value).trim().toLowerCase())
 }
 
-function buildProductImportPayload(record) {
-  const values = Object.fromEntries(
-    Object.entries(record).map(([key, value]) => [key.trim().toLowerCase(), value]),
-  )
-  const name = String(values.name || '').trim()
-  if (!name) throw new Error('Thiếu tên sản phẩm (name).')
+function processRawRecord(raw, rowNum) {
+  const keys = Object.keys(raw)
+  const getVal = (patterns) => {
+    for (const pat of patterns) {
+      for (const k of keys) {
+        const cleanK = k.toLowerCase().replace(/[^a-z0-9]/g, '')
+        const cleanPat = pat.toLowerCase().replace(/[^a-z0-9]/g, '')
+        if (cleanK === cleanPat) {
+          return raw[k]
+        }
+      }
+    }
+    return ''
+  }
 
-  const categoryValue = String(values.category_id || values.category_name || values.category || '').trim()
-  const category = categories.value.find((item) =>
-    item.id === categoryValue || item.name.toLowerCase() === categoryValue.toLowerCase(),
-  )
-  if (!category) throw new Error(`Không tìm thấy danh mục "${categoryValue || '(trống)'}".`)
+  const name = String(getVal(['name', 'ten', 'tensanpham', 'productname', 'title'])).trim()
+  const categoryRaw = String(getVal(['category', 'categoryname', 'categoryid', 'danhmuc', 'loai', 'nhom'])).trim()
+  const priceRaw = getVal(['price', 'giaban', 'gia', 'giagoc'])
+  const salePriceRaw = getVal(['saleprice', 'giakhuyenmai', 'giagiam', 'sale'])
+  const stockRaw = getVal(['stock', 'soluong', 'tonkho', 'quantity', 'sl'])
+  const colorsRaw = getVal(['colors', 'color', 'mausac', 'mau'])
+  const sizesRaw = getVal(['sizes', 'size', 'kichco'])
+  const imageRaw = getVal(['image', 'images', 'imageurl', 'hinhanh', 'anh', 'linkanh'])
+  const descRaw = getVal(['description', 'mota', 'chitiet', 'desc'])
+  const featuredRaw = getVal(['isfeatured', 'featured', 'noibat'])
+
+  // Tìm danh mục tương ứng
+  let matchedCat = null
+  if (categoryRaw) {
+    matchedCat = categories.value.find((c) =>
+      c.id === categoryRaw ||
+      c.name.toLowerCase() === categoryRaw.toLowerCase() ||
+      c.slug?.toLowerCase() === categoryRaw.toLowerCase(),
+    )
+  }
+  if (!matchedCat && defaultImportCategoryId.value) {
+    matchedCat = categories.value.find((c) => c.id === defaultImportCategoryId.value)
+  }
+
+  const priceNum = parseImportNumber(priceRaw, 'giá', false)
+  const salePriceNum = parseImportNumber(salePriceRaw, 'giá sale', false)
+  const stockNum = parseImportNumber(stockRaw, 'tồn kho', false) ?? 50
+
+  const errors = []
+  if (!name) errors.push('Thiếu tên sản phẩm')
+  if (!priceNum || priceNum <= 0) errors.push('Giá bán không hợp lệ')
+  if (!matchedCat) errors.push(`Chưa khớp danh mục "${categoryRaw || '(trống)'}"`)
 
   return {
+    raw,
+    rowNum,
     name,
-    slug: values.slug ? String(values.slug).trim() : undefined,
-    description: String(values.description || ''),
-    price: parseImportNumber(values.price, 'price', true),
-    sale_price: parseImportNumber(values.sale_price, 'sale_price'),
-    category_id: category.id,
-    images: parseImportList(values.images || values.image_url),
-    colors: parseImportList(values.colors),
-    sizes: parseImportList(values.sizes),
-    variants: parseImportList(values.variants),
-    tags: parseImportList(values.tags),
-    stock: parseImportNumber(values.stock || 0, 'stock', true),
-    is_featured: parseImportBoolean(values.is_featured),
-    is_active: parseImportBoolean(values.is_active, true),
+    categoryRaw,
+    categoryId: matchedCat ? matchedCat.id : '',
+    categoryName: matchedCat ? matchedCat.name : categoryRaw || 'Chưa chọn',
+    price: priceNum || 0,
+    sale_price: salePriceNum,
+    stock: stockNum,
+    colors: parseImportList(colorsRaw),
+    sizes: parseImportList(sizesRaw),
+    images: parseImportList(imageRaw),
+    description: String(descRaw || name || 'Sản phẩm thời trang cao cấp').trim(),
+    is_featured: parseImportBoolean(featuredRaw, false),
+    isValid: errors.length === 0,
+    errors,
   }
 }
 
-function openProductImport() {
-  productImportInput.value?.click()
+function revalidateParsedProducts() {
+  if (parsedProducts.value.length === 0) return
+  parsedProducts.value = parsedProducts.value.map((item) => {
+    return processRawRecord(item.raw, item.rowNum)
+  })
 }
 
-async function handleProductImport(event) {
-  const file = event.target.files?.[0]
-  event.target.value = ''
+async function onFileSelected(file) {
   if (!file) return
+  importFile.value = file
+  importFileName.value = file.name
+  importErrorMsg.value = ''
+  importSuccessMsg.value = ''
+  importParsing.value = true
+  parsedProducts.value = []
 
-  importingProducts.value = true
   try {
     if (categories.value.length === 0) await loadCategories()
-    const content = await file.text()
-    let records
-    if (file.name.toLowerCase().endsWith('.json')) {
-      const parsed = JSON.parse(content)
-      records = Array.isArray(parsed) ? parsed : parsed.products
-      if (!Array.isArray(records)) throw new Error('JSON phải là danh sách sản phẩm hoặc có trường products.')
+    const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase()
+    importFileType.value = ext
+
+    let rawRecords = []
+
+    if (ext === '.xlsx' || ext === '.xls') {
+      const buffer = await file.arrayBuffer()
+      const wb = XLSX.read(buffer, { type: 'array' })
+      const firstSheet = wb.Sheets[wb.SheetNames[0]]
+      rawRecords = XLSX.utils.sheet_to_json(firstSheet, { defval: '' })
+    } else if (ext === '.csv') {
+      const buffer = await file.arrayBuffer()
+      const wb = XLSX.read(buffer, { type: 'array' })
+      const firstSheet = wb.Sheets[wb.SheetNames[0]]
+      rawRecords = XLSX.utils.sheet_to_json(firstSheet, { defval: '' })
+    } else if (ext === '.docx') {
+      rawRecords = await parseDocxFile(file)
+    } else if (ext === '.doc') {
+      rawRecords = await parseDocFile(file)
+    } else if (ext === '.json') {
+      const text = await file.text()
+      const parsed = JSON.parse(text)
+      rawRecords = Array.isArray(parsed) ? parsed : (parsed.products || parsed.items || [])
+    } else if (ext === '.txt') {
+      const text = await file.text()
+      rawRecords = parseDelimitedText(text)
     } else {
-      records = parseCsvProducts(content)
+      const buffer = await file.arrayBuffer()
+      const wb = XLSX.read(buffer, { type: 'array' })
+      const firstSheet = wb.Sheets[wb.SheetNames[0]]
+      rawRecords = XLSX.utils.sheet_to_json(firstSheet, { defval: '' })
     }
 
-    let imported = 0
-    const failures = []
-    for (const [index, record] of records.entries()) {
-      try {
-        await productApi.create(buildProductImportPayload(record))
-        imported += 1
-      } catch (error) {
-        failures.push(`Dòng ${index + 2}: ${error.response?.data?.detail || error.message}`)
-      }
+    if (!rawRecords || rawRecords.length === 0) {
+      throw new Error('Không tìm thấy dòng dữ liệu sản phẩm nào trong file.')
     }
 
-    if (imported > 0) {
-      addLog('product', 'import', 'Import sản phẩm', `Đã thêm ${imported} sản phẩm từ file ${file.name}`)
-      await loadProducts()
-    }
-    const summary = `Đã import ${imported}/${records.length} sản phẩm.`
-    alert(failures.length ? `${summary}\n${failures.slice(0, 5).join('\n')}` : summary)
-  } catch (error) {
-    alert(error.response?.data?.detail || error.message || 'Không thể đọc file sản phẩm.')
+    const processedList = rawRecords.map((rec, index) => processRawRecord(rec, index + 1))
+    parsedProducts.value = processedList
+  } catch (err) {
+    console.error('Lỗi phân tích file import:', err)
+    importErrorMsg.value = err.message || 'Không thể đọc nội dung file. Vui lòng kiểm tra lại định dạng file.'
   } finally {
-    importingProducts.value = false
+    importParsing.value = false
+  }
+}
+
+async function executeImport() {
+  if (parsedProducts.value.length === 0) return
+  importExecuting.value = true
+  importProgress.value = { current: 0, total: parsedProducts.value.length }
+
+  let successCount = 0
+  let failCount = 0
+  const errorLogs = []
+
+  if (categories.value.length === 0) await loadCategories()
+
+  for (let i = 0; i < parsedProducts.value.length; i++) {
+    const item = parsedProducts.value[i]
+    importProgress.value.current = i + 1
+
+    let catId = item.categoryId
+    if (!catId && defaultImportCategoryId.value) {
+      catId = defaultImportCategoryId.value
+    }
+
+    if (!item.name || !item.price || item.price <= 0 || !catId) {
+      failCount++
+      errorLogs.push(`Dòng ${item.rowNum} (${item.name || 'Không tên'}): Thiếu tên, giá bán hoặc danh mục`)
+      continue
+    }
+
+    try {
+      const payload = {
+        name: item.name,
+        description: item.description || item.name,
+        price: item.price,
+        sale_price: item.sale_price,
+        category_id: catId,
+        stock: item.stock || 50,
+        colors: item.colors,
+        sizes: item.sizes,
+        images: item.images?.length > 0 ? item.images : ['https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800'],
+        is_featured: item.is_featured,
+        is_active: true,
+      }
+      await productApi.create(payload)
+      successCount++
+    } catch (err) {
+      failCount++
+      errorLogs.push(`Dòng ${item.rowNum} (${item.name}): ${err.response?.data?.detail || err.message}`)
+    }
+  }
+
+  importExecuting.value = false
+
+  if (successCount > 0) {
+    addLog('product', 'import', 'Import sản phẩm từ file', `Đã nhập thành công ${successCount} sản phẩm từ file ${importFileName.value}`)
+    await loadProducts()
+  }
+
+  if (failCount === 0) {
+    importSuccessMsg.value = `Tuyệt vời! Đã nhập thành công toàn bộ ${successCount} sản phẩm vào hệ thống.`
+    setTimeout(() => {
+      showImportModal.value = false
+    }, 1800)
+  } else {
+    importErrorMsg.value = `Hoàn tất: Đã nhập ${successCount} sản phẩm thành công, ${failCount} dòng gặp lỗi.\n` + errorLogs.slice(0, 5).join('\n')
   }
 }
 
@@ -2039,6 +2565,374 @@ onMounted(() => {
   font-size: 1.3rem;
   color: var(--accent);
   margin-left: 0.5rem;
+}
+
+/* Import Modal Styles */
+.import-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.import-templates-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  padding: 0.75rem 1rem;
+  background: #fbf9f4;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.templates-label {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.template-btns {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.btn-sample-dl {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid var(--line-strong);
+  background: #ffffff;
+  color: var(--ink);
+}
+
+.btn-sample-dl.excel:hover {
+  background: #e8f5e9;
+  border-color: #2e7d32;
+  color: #2e7d32;
+}
+
+.btn-sample-dl.csv:hover {
+  background: #e3f2fd;
+  border-color: #1565c0;
+  color: #1565c0;
+}
+
+.btn-sample-dl.doc:hover {
+  background: #fff3e0;
+  border-color: #e65100;
+  color: #e65100;
+}
+
+.import-dropzone {
+  border: 2px dashed var(--line-strong);
+  border-radius: 12px;
+  padding: 2rem 1.5rem;
+  background: #ffffff;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.import-dropzone:hover,
+.import-dropzone.is-dragover {
+  border-color: var(--accent);
+  background: #f2f8f6;
+}
+
+.import-dropzone.has-file {
+  border-style: solid;
+  border-color: var(--accent);
+  background: #fafcfb;
+  padding: 1.2rem;
+}
+
+.dropzone-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dropzone-icon {
+  font-size: 2.5rem;
+}
+
+.dropzone-text strong {
+  font-size: 1rem;
+  color: var(--ink);
+}
+
+.dropzone-text p {
+  margin: 0.3rem 0 0;
+  font-size: 0.84rem;
+  color: var(--muted);
+}
+
+.dropzone-text code {
+  background: #ede6da;
+  padding: 0.15rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  color: var(--ink);
+}
+
+.dropzone-file-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  text-align: left;
+}
+
+.file-icon-badge {
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.5rem 0.8rem;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+
+.file-text-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.file-text-details strong {
+  font-size: 0.95rem;
+  color: var(--ink);
+  word-break: break-all;
+}
+
+.file-text-details small {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.btn-change-file {
+  background: #ffffff;
+  border: 1px solid var(--line-strong);
+  padding: 0.4rem 0.8rem;
+  font-size: 0.82rem;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--ink);
+}
+
+.btn-change-file:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.import-loading-state {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 1rem;
+  background: #f5f8fa;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: var(--ink);
+}
+
+.spinner-sm {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #ccd6dd;
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.alert-error-box {
+  background: #fde8e8;
+  border: 1px solid #f8b4b4;
+  color: #9b1c1c;
+  padding: 0.8rem 1rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+.alert-error-box pre {
+  margin: 0.4rem 0 0;
+  white-space: pre-wrap;
+  font-family: inherit;
+  font-size: 0.82rem;
+}
+
+.alert-success-box {
+  background: #def7ec;
+  border: 1px solid #84e1bc;
+  color: #03543f;
+  padding: 0.8rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.parsed-results-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.import-config-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  background: #fbf9f4;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+}
+
+.config-field {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.85rem;
+}
+
+.config-field label {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.config-field select {
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  background: #ffffff;
+  outline: none;
+}
+
+.import-stats {
+  display: flex;
+  gap: 0.8rem;
+  font-size: 0.85rem;
+}
+
+.stat-item {
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-weight: 500;
+}
+
+.stat-item.total { background: #edf2f7; color: #2d3748; }
+.stat-item.valid { background: #def7ec; color: #03543f; }
+.stat-item.invalid { background: #fde8e8; color: #9b1c1c; }
+
+.preview-table-container {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.preview-table-header {
+  padding: 0.5rem 0.8rem;
+  background: #f7f4ed;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--ink);
+  border-bottom: 1px solid var(--line);
+}
+
+.preview-table-scroll {
+  max-height: 250px;
+  overflow-y: auto;
+}
+
+.preview-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.preview-table th {
+  background: #faf8f5;
+  padding: 0.5rem 0.7rem;
+  text-align: left;
+  font-weight: 600;
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.preview-table td {
+  padding: 0.5rem 0.7rem;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+
+.preview-table tr.row-invalid {
+  background: #fff8f8;
+}
+
+.preview-desc-sub {
+  font-size: 0.75rem;
+  color: var(--muted);
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.badge-pill {
+  display: inline-block;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.badge-pill.badge-success {
+  background: #def7ec;
+  color: #03543f;
+}
+
+.badge-pill.badge-error {
+  background: #fde8e8;
+  color: #9b1c1c;
+}
+
+.import-progress-box {
+  background: #fbf9f4;
+  padding: 0.8rem 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+}
+
+.progress-bar-track {
+  width: 100%;
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 0.4rem;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.2s ease;
+}
+
+.progress-info-text {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  color: var(--ink);
 }
 
 @media (max-width: 1024px) {
