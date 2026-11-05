@@ -165,6 +165,16 @@ class ProductService:
     @staticmethod
     async def delete_product(product_id: str) -> None:
         db = get_database()
+        # Kiểm tra xem sản phẩm có đang trong đơn hàng nào đang xử lý không
+        active_order = await db.orders.find_one({
+            "items.product_id": product_id,
+            "status": {"$in": ["pending", "confirmed", "shipping"]}
+        })
+        if active_order:
+            raise HTTPException(
+                status_code=400,
+                detail="Không thể xóa sản phẩm này vì đang có trong đơn hàng đang xử lý (chờ xác nhận / đã duyệt / đang giao)."
+            )
         result = await db.products.delete_one({"_id": to_object_id(product_id)})
         if result.deleted_count == 0:
             raise HTTPException(status_code=404, detail="Product not found")

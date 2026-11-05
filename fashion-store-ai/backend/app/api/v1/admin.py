@@ -14,7 +14,7 @@ router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(get_cu
 async def dashboard() -> dict:
     db = get_database()
     orders = await OrderService.list_orders()
-    revenue = sum(order.get("total", 0) for order in orders if order.get("status") != "cancelled")
+    revenue = sum(order.get("total", 0) for order in orders if order.get("status") == "completed")
     return {
         "users": await db.users.count_documents({}),
         "products": await db.products.count_documents({}),

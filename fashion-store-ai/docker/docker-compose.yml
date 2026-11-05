@@ -12,6 +12,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile.backend
     container_name: fashion-backend
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/app --reload-dir /app/ai-core
     env_file:
       - ../backend/.env
     environment:
@@ -19,6 +20,9 @@ services:
       CHROMA_PERSIST_DIR: /app/data/chroma
       CORS_ORIGINS: http://localhost:3000,http://localhost:5173
     volumes:
+      - ../backend/app:/app/app
+      - ../backend/ai-core:/app/ai-core
+      - ../backend/seed_demo.py:/app/seed_demo.py
       - chroma_data:/app/data/chroma
     ports:
       - "8000:8000"
@@ -28,10 +32,15 @@ services:
   frontend:
     build:
       context: ..
-      dockerfile: docker/Dockerfile.frontend
+      dockerfile: docker/Dockerfile.frontend.dev
     container_name: fashion-frontend
+    environment:
+      - VITE_API_PROXY=http://backend:8000
+    volumes:
+      - ../frontend:/app
+      - /app/node_modules
     ports:
-      - "3000:80"
+      - "3000:5173"
     depends_on:
       - backend
 

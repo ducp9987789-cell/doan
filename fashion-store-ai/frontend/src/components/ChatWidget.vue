@@ -53,22 +53,6 @@
         </div>
       </div>
 
-      <!-- Câu hỏi nhanh gợi ý -->
-      <div class="quick-questions">
-        <span class="quick-title">Gợi ý câu hỏi:</span>
-        <div class="quick-chips">
-          <button
-            v-for="q in quickQuestions"
-            :key="q"
-            class="chip-btn"
-            type="button"
-            @click="send(q)"
-          >
-            {{ q }}
-          </button>
-        </div>
-      </div>
-
       <!-- Form nhập câu hỏi -->
       <form class="chat-input-form" @submit.prevent="send()">
         <input
@@ -104,12 +88,6 @@ const messages = ref([
   },
 ])
 
-const quickQuestions = [
-  'Gợi ý áo sơ mi công sở',
-  'Chính sách đổi trả hàng?',
-  'Mã giảm giá đang có?',
-  'Tư vấn chọn size theo chiều cao',
-]
 
 function formatPrice(value) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value || 0)
@@ -323,28 +301,6 @@ async function send(preset) {
 .sugg-item small {
   font-weight: 700;
   color: var(--accent);
-}
-
-.quick-questions {
-  padding: 0.6rem 1rem;
-  background: #ffffff;
-  border-top: 1px solid var(--line);
-}
-
-.quick-title {
-  display: block;
-  font-size: 0.72rem;
-  color: var(--muted);
-  margin-bottom: 0.35rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 700;
-}
-
-.quick-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
 }
 
 .chip-btn {

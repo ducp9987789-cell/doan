@@ -36,9 +36,6 @@
       </nav>
 
       <div class="sidebar-footer">
-        <RouterLink to="/" class="btn-sidebar-link">
-          <span>🛍️ Xem trang cửa hàng</span>
-        </RouterLink>
         <button class="btn-sidebar-link text-danger" @click="handleLogout">
           <span>🚪 Đăng xuất quản trị</span>
         </button>
@@ -65,9 +62,7 @@
             <div class="stat-icon-wrapper bg-blue">📦</div>
             <div class="stat-meta">
               <span class="stat-label">Tổng đơn hàng</span>
-              <strong class="stat-number">{{ dashboard.orders || 0 }}</strong>
-              <span class="stat-sub">Bấm để xem đơn hàng</span>
-            </div>
+              <strong class="stat-number">{{ dashboard.orders || 0 }}</strong>            </div>
           </div>
 
           <div class="stat-box clickable" @click="currentSection = 'products'">
@@ -75,7 +70,6 @@
             <div class="stat-meta">
               <span class="stat-label">Sản phẩm thời trang</span>
               <strong class="stat-number">{{ dashboard.products || 0 }}</strong>
-              <span class="stat-sub">Bấm để quản lý sản phẩm</span>
             </div>
           </div>
 
@@ -84,7 +78,6 @@
             <div class="stat-meta">
               <span class="stat-label">Danh mục sản phẩm</span>
               <strong class="stat-number">{{ categories.length || 0 }}</strong>
-              <span class="stat-sub">Bấm để xem danh mục</span>
             </div>
           </div>
 
@@ -93,7 +86,6 @@
             <div class="stat-meta">
               <span class="stat-label">Tổng doanh thu</span>
               <strong class="stat-number text-accent">{{ formatPrice(dashboard.revenue || 0) }}</strong>
-              <span class="stat-sub">Đơn hàng không bị hủy</span>
             </div>
           </div>
         </div>
@@ -163,10 +155,16 @@
             emptyText="Chưa có danh mục nào."
             @reload="loadCategories"
           >
-            <template #cell-is_active="{ value }">
-              <span class="badge-status" :class="value ? 'active' : 'inactive'">
-                {{ value ? 'Đang hoạt động' : 'Tạm ẩn' }}
-              </span>
+            <template #cell-is_active="{ row }">
+              <select
+                :value="row.is_active !== false"
+                class="status-dropdown"
+                :class="row.is_active !== false ? 'status-active' : 'status-inactive'"
+                @change="handleToggleCategoryActive(row, $event.target.value === 'true')"
+              >
+                <option :value="true">Đang hoạt động</option>
+                <option :value="false">Tạm ẩn</option>
+              </select>
             </template>
 
             <template #cell-actions="{ row }">
@@ -242,6 +240,18 @@
               </div>
             </template>
 
+            <template #cell-is_active="{ row }">
+              <select
+                :value="row.is_active !== false"
+                class="status-dropdown"
+                :class="row.is_active !== false ? 'status-active' : 'status-inactive'"
+                @change="handleToggleProductActive(row, $event.target.value === 'true')"
+              >
+                <option :value="true">Đang hoạt động</option>
+                <option :value="false">Tạm ẩn</option>
+              </select>
+            </template>
+
             <template #cell-actions="{ row }">
               <div class="table-actions">
                 <button class="btn-action-edit" @click="openEditProductModal(row)" title="Chỉnh sửa">
@@ -305,9 +315,15 @@
                 :value="row.status"
                 class="status-dropdown"
                 :class="row.status"
+                :disabled="row.status === 'completed' || row.status === 'cancelled'"
                 @change="handleUpdateOrderStatus(row.id, $event.target.value)"
               >
-                <option v-for="st in statusList" :key="st.key" :value="st.key">
+                <option
+                  v-for="st in statusList"
+                  :key="st.key"
+                  :value="st.key"
+                  :disabled="isStatusOptionDisabled(row.status, st.key)"
+                >
                   {{ st.label }}
                 </option>
               </select>
@@ -361,15 +377,24 @@
               </strong>
             </template>
 
-            <template #cell-is_active="{ value }">
-              <span class="badge-status" :class="value ? 'active' : 'inactive'">
-                {{ value ? 'Đang hiệu lực' : 'Đã hết hạn' }}
-              </span>
+            <template #cell-is_active="{ row }">
+              <select
+                :value="row.is_active !== false"
+                class="status-dropdown"
+                :class="row.is_active !== false ? 'status-active' : 'status-inactive'"
+                @change="handleTogglePromoActive(row, $event.target.value === 'true')"
+              >
+                <option :value="true">Đang hoạt động</option>
+                <option :value="false">Tạm ẩn</option>
+              </select>
             </template>
 
             <template #cell-actions="{ row }">
               <div class="table-actions">
-                <button class="btn-action-delete" @click="handleDeletePromo(row)">
+                <button class="btn-action-edit" @click="openEditPromoModal(row)" title="Chỉnh sửa voucher">
+                  ✏️ Sửa
+                </button>
+                <button class="btn-action-delete" @click="handleDeletePromo(row)" title="Xóa voucher">
                   🗑️ Xóa
                 </button>
               </div>
@@ -543,6 +568,13 @@
           <label>Mô tả danh mục</label>
           <textarea v-model="categoryForm.description" rows="3" placeholder="Áo sơ mi công sở, áo thun phong cách..." />
         </div>
+        <div class="field">
+          <label>Trạng thái *</label>
+          <select v-model="categoryForm.is_active">
+            <option :value="true">Đang hoạt động</option>
+            <option :value="false">Tạm ẩn</option>
+          </select>
+        </div>
       </form>
       <template #footer>
         <button class="btn secondary" type="button" @click="showCategoryModal = false">Hủy</button>
@@ -611,11 +643,20 @@
           <textarea v-model="productForm.description" rows="3" placeholder="Chất liệu cotton cao cấp, chống nhăn, thoáng mát..." required />
         </div>
 
-        <div class="field checkbox-field">
-          <label class="checkbox-label">
-            <input type="checkbox" v-model="productForm.is_featured" />
-            <span>Đánh dấu sản phẩm <strong>Nổi bật (Featured)</strong> hiển thị ở trang chủ</span>
-          </label>
+        <div class="form-row-2">
+          <div class="field">
+            <label>Trạng thái *</label>
+            <select v-model="productForm.is_active">
+              <option :value="true">Đang hoạt động</option>
+              <option :value="false">Tạm ẩn</option>
+            </select>
+          </div>
+          <div class="field checkbox-field" style="display:flex;align-items:flex-end;padding-bottom:4px">
+            <label class="checkbox-label">
+              <input type="checkbox" v-model="productForm.is_featured" />
+              <span>Đánh dấu sản phẩm <strong>Nổi bật (Featured)</strong> hiển thị ở trang chủ</span>
+            </label>
+          </div>
         </div>
       </form>
       <template #footer>
@@ -626,10 +667,10 @@
       </template>
     </AdminModal>
 
-    <!-- MODAL 3: THÊM KHUYẾN MÃI -->
+    <!-- MODAL 3: THÊM / SỬA KHUYẾN MÃI -->
     <AdminModal
       :show="showPromoModal"
-      title="Tạo mã khuyến mãi mới"
+      :title="editingPromo ? 'Chỉnh sửa mã khuyến mãi' : 'Tạo mã khuyến mãi mới'"
       icon="🎁"
       @close="showPromoModal = false"
     >
@@ -659,9 +700,18 @@
           </div>
         </div>
 
-        <div class="field">
-          <label>Đơn hàng tối thiểu áp dụng (VNĐ)</label>
-          <input v-model.number="promoForm.min_order_value" type="number" placeholder="200000" />
+        <div class="form-row-2">
+          <div class="field">
+            <label>Đơn hàng tối thiểu áp dụng (VNĐ)</label>
+            <input v-model.number="promoForm.min_order_value" type="number" placeholder="200000" />
+          </div>
+          <div class="field">
+            <label>Trạng thái *</label>
+            <select v-model="promoForm.is_active">
+              <option :value="true">Đang hoạt động</option>
+              <option :value="false">Tạm ẩn</option>
+            </select>
+          </div>
         </div>
 
         <div class="field">
@@ -671,7 +721,9 @@
       </form>
       <template #footer>
         <button class="btn secondary" type="button" @click="showPromoModal = false">Hủy</button>
-        <button class="btn" form="promoForm" type="submit">Tạo mã ưu đãi</button>
+        <button class="btn" form="promoForm" type="submit">
+          {{ editingPromo ? 'Lưu thay đổi' : 'Tạo mã ưu đãi' }}
+        </button>
       </template>
     </AdminModal>
 
@@ -1011,7 +1063,7 @@ const invalidProductsCount = computed(() => {
 // Trạng thái modal
 const showCategoryModal = ref(false)
 const editingCategory = ref(null)
-const categoryForm = reactive({ name: '', slug: '', description: '' })
+const categoryForm = reactive({ name: '', slug: '', description: '', is_active: true })
 
 const showProductModal = ref(false)
 const editingProduct = ref(null)
@@ -1026,9 +1078,11 @@ const productForm = reactive({
   imageUrl: '',
   description: '',
   is_featured: false,
+  is_active: true,
 })
 
 const showPromoModal = ref(false)
+const editingPromo = ref(null)
 const promoForm = reactive({
   code: '',
   title: '',
@@ -1036,6 +1090,7 @@ const promoForm = reactive({
   discount_value: 15,
   min_order_value: 0,
   description: '',
+  is_active: true,
 })
 
 const showFaqModal = ref(false)
@@ -1106,6 +1161,17 @@ const productColumns = computed(() => [
   },
   { key: 'price', label: 'Giá bán', sortable: true, width: '150px' },
   { key: 'stock', label: 'Tồn kho', sortable: true, width: '100px', align: 'center' },
+  {
+    key: 'is_active',
+    label: 'Trạng thái',
+    width: '160px',
+    align: 'center',
+    filterType: 'select',
+    filterOptions: [
+      { label: 'Đang hoạt động', value: 'true' },
+      { label: 'Tạm ẩn', value: 'false' },
+    ],
+  },
   { key: 'actions', label: 'Thao tác', width: '160px', filterable: false, align: 'center' },
 ])
 
@@ -1140,8 +1206,18 @@ const promoColumns = [
   { key: 'code', label: 'Mã Voucher', width: '160px', sortable: true },
   { key: 'title', label: 'Tiêu đề khuyến mãi', sortable: true },
   { key: 'discount', label: 'Mức giảm', width: '140px' },
-  { key: 'is_active', label: 'Trạng thái', width: '150px' },
-  { key: 'actions', label: 'Thao tác', width: '110px', filterable: false, align: 'center' },
+  {
+    key: 'is_active',
+    label: 'Trạng thái',
+    width: '160px',
+    align: 'center',
+    filterType: 'select',
+    filterOptions: [
+      { label: 'Đang hoạt động', value: 'true' },
+      { label: 'Tạm ẩn', value: 'false' },
+    ],
+  },
+  { key: 'actions', label: 'Thao tác', width: '140px', filterable: false, align: 'center' },
 ]
 
 const faqColumns = [
@@ -1162,6 +1238,21 @@ const statusList = [
   { key: 'completed', label: '🎉 Giao thành công' },
   { key: 'cancelled', label: '❌ Đã hủy đơn' },
 ]
+
+// Kiểm tra option trạng thái có bị disable không (chặn chuyển ngược)
+const statusOrder = ['pending', 'confirmed', 'shipping', 'completed']
+function isStatusOptionDisabled(currentStatus, optionKey) {
+  // Không cho phép chọn lại chính trạng thái hiện tại (giữ nguyên)
+  if (optionKey === currentStatus) return false
+  // Cho phép hủy từ mọi trạng thái (trừ completed)
+  if (optionKey === 'cancelled') return currentStatus === 'completed' || currentStatus === 'cancelled'
+  // Chặn nếu đang ở completed hoặc cancelled
+  if (currentStatus === 'completed' || currentStatus === 'cancelled') return true
+  // Chặn chuyển ngược
+  const currentIdx = statusOrder.indexOf(currentStatus)
+  const optionIdx = statusOrder.indexOf(optionKey)
+  return optionIdx < currentIdx
+}
 
 const statusMap = {
   pending: 'Chờ xác nhận',
@@ -1208,10 +1299,19 @@ async function loadAllData() {
     ])
 
     dashboard.value = dash.data || {}
-    categories.value = catRes.data || []
-    products.value = prodRes.data.items || []
+    categories.value = (catRes.data || []).map((c) => ({
+      ...c,
+      is_active: c.is_active !== undefined ? c.is_active : true,
+    }))
+    products.value = (prodRes.data.items || []).map((p) => ({
+      ...p,
+      is_active: p.is_active !== undefined ? p.is_active : true,
+    }))
     orders.value = ordRes.data || []
-    promotions.value = promoRes.data || []
+    promotions.value = (promoRes.data || []).map((pr) => ({
+      ...pr,
+      is_active: pr.is_active !== undefined ? pr.is_active : true,
+    }))
     faqs.value = faqRes.data || []
     chatLogs.value = logRes.data || []
 
@@ -1227,12 +1327,26 @@ async function loadAllData() {
 
 async function loadCategories() {
   const { data } = await productApi.categories({ active_only: false })
-  categories.value = data || []
+  categories.value = (data || []).map((c) => ({
+    ...c,
+    is_active: c.is_active !== undefined ? c.is_active : true,
+  }))
 }
 
 async function loadProducts() {
   const { data } = await adminApi.products({ page_size: 100 })
-  products.value = data.items || []
+  products.value = (data.items || []).map((p) => ({
+    ...p,
+    is_active: p.is_active !== undefined ? p.is_active : true,
+  }))
+}
+
+async function loadPromotions() {
+  const { data } = await productApi.promotions({ active_only: false })
+  promotions.value = (data || []).map((pr) => ({
+    ...pr,
+    is_active: pr.is_active !== undefined ? pr.is_active : true,
+  }))
 }
 
 // ================= IMPORT SẢN PHẨM TỪ FILE (XLSX, CSV, DOCX, DOC, TXT, JSON) =================
@@ -1718,11 +1832,6 @@ async function loadOrders() {
   orders.value = data || []
 }
 
-async function loadPromotions() {
-  const { data } = await productApi.promotions({ active_only: false })
-  promotions.value = data || []
-}
-
 async function loadFaqs() {
   const { data } = await chatApi.faqs()
   faqs.value = data || []
@@ -1736,7 +1845,7 @@ async function loadChatLogs() {
 // ================= CRUD CATEGORY =================
 function openCreateCategoryModal() {
   editingCategory.value = null
-  Object.assign(categoryForm, { name: '', slug: '', description: '' })
+  Object.assign(categoryForm, { name: '', slug: '', description: '', is_active: true })
   showCategoryModal.value = true
 }
 
@@ -1746,6 +1855,7 @@ function openEditCategoryModal(cat) {
     name: cat.name,
     slug: cat.slug,
     description: cat.description || '',
+    is_active: cat.is_active !== false,
   })
   showCategoryModal.value = true
 }
@@ -1778,6 +1888,30 @@ async function handleDeleteCategory(cat) {
   }
 }
 
+async function handleToggleCategoryActive(cat, newActive) {
+  const oldActive = cat.is_active
+  cat.is_active = newActive
+  try {
+    await productApi.updateCategory(cat.id, { is_active: newActive })
+    addLog('category', 'update', `Đổi trạng thái danh mục: ${cat.name}`, `Chuyển sang: ${newActive ? 'Đang hoạt động' : 'Tạm ẩn'}`)
+  } catch (err) {
+    cat.is_active = oldActive
+    alert(err.response?.data?.detail || 'Không thể cập nhật trạng thái danh mục')
+  }
+}
+
+async function handleToggleProductActive(prod, newActive) {
+  const oldActive = prod.is_active
+  prod.is_active = newActive
+  try {
+    await productApi.updateProduct(prod.id, { is_active: newActive })
+    addLog('product', 'update', `Đổi trạng thái sản phẩm: ${prod.name}`, `Chuyển sang: ${newActive ? 'Đang hoạt động' : 'Tạm ẩn'}`)
+  } catch (err) {
+    prod.is_active = oldActive
+    alert(err.response?.data?.detail || 'Không thể cập nhật trạng thái sản phẩm')
+  }
+}
+
 // ================= CRUD PRODUCT =================
 function openCreateProductModal() {
   editingProduct.value = null
@@ -1792,6 +1926,7 @@ function openCreateProductModal() {
     imageUrl: '',
     description: '',
     is_featured: false,
+    is_active: true,
   })
   showProductModal.value = true
 }
@@ -1809,6 +1944,7 @@ function openEditProductModal(prod) {
     imageUrl: prod.images?.[0] || '',
     description: prod.description || '',
     is_featured: Boolean(prod.is_featured),
+    is_active: prod.is_active !== false,
   })
   showProductModal.value = true
 }
@@ -1825,6 +1961,7 @@ async function submitProductForm() {
     images: productForm.imageUrl ? [productForm.imageUrl] : [],
     description: productForm.description,
     is_featured: productForm.is_featured,
+    is_active: productForm.is_active,
   }
 
   try {
@@ -1872,6 +2009,7 @@ function openOrderDetailModal(order) {
 
 // ================= CRUD PROMOTIONS =================
 function openCreatePromoModal() {
+  editingPromo.value = null
   Object.assign(promoForm, {
     code: '',
     title: '',
@@ -1879,26 +2017,60 @@ function openCreatePromoModal() {
     discount_value: 15,
     min_order_value: 0,
     description: '',
+    is_active: true,
+  })
+  showPromoModal.value = true
+}
+
+function openEditPromoModal(promo) {
+  editingPromo.value = promo
+  Object.assign(promoForm, {
+    code: promo.code,
+    title: promo.title,
+    discount_type: promo.discount_type || 'percent',
+    discount_value: promo.discount_value || 0,
+    min_order_value: promo.min_order_value || 0,
+    description: promo.description || '',
+    is_active: promo.is_active !== false,
   })
   showPromoModal.value = true
 }
 
 async function submitPromoForm() {
   try {
-    await productApi.createPromotion({
+    const payload = {
       code: promoForm.code.toUpperCase().trim(),
       title: promoForm.title,
       discount_type: promoForm.discount_type,
       discount_value: Number(promoForm.discount_value),
       min_order_value: Number(promoForm.min_order_value) || 0,
       description: promoForm.description,
-      is_active: true,
-    })
-    addLog('promo', 'create', `Tạo voucher: ${promoForm.code}`, `Mức giảm: ${promoForm.discount_value}${promoForm.discount_type === 'percent' ? '%' : 'đ'}`)
+      is_active: Boolean(promoForm.is_active),
+    }
+
+    if (editingPromo.value) {
+      await productApi.updatePromotion(editingPromo.value.id, payload)
+      addLog('promo', 'update', `Cập nhật voucher: ${payload.code}`, `Trạng thái: ${payload.is_active ? 'Đang hoạt động' : 'Tạm ẩn'}`)
+    } else {
+      await productApi.createPromotion(payload)
+      addLog('promo', 'create', `Tạo voucher: ${payload.code}`, `Mức giảm: ${payload.discount_value}${payload.discount_type === 'percent' ? '%' : 'đ'}`)
+    }
     showPromoModal.value = false
     await loadPromotions()
   } catch (err) {
-    alert(err.response?.data?.detail || 'Lỗi tạo mã khuyến mãi')
+    alert(err.response?.data?.detail || 'Lỗi lưu mã khuyến mãi')
+  }
+}
+
+async function handleTogglePromoActive(promo, newActive) {
+  const oldActive = promo.is_active
+  promo.is_active = newActive
+  try {
+    await productApi.updatePromotion(promo.id, { is_active: newActive })
+    addLog('promo', 'update', `Đổi trạng thái voucher: ${promo.code}`, `Chuyển sang: ${newActive ? 'Đang hoạt động' : 'Tạm ẩn'}`)
+  } catch (err) {
+    promo.is_active = oldActive
+    alert(err.response?.data?.detail || 'Không thể cập nhật trạng thái mã khuyến mãi')
   }
 }
 
@@ -2277,11 +2449,6 @@ onMounted(() => {
   line-height: 1.2;
 }
 
-.stat-sub {
-  font-size: 0.75rem;
-  color: var(--muted);
-  margin-top: 0.2rem;
-}
 
 .text-accent {
   color: var(--accent);
@@ -2428,6 +2595,19 @@ onMounted(() => {
   font-size: 0.82rem;
   border: 1px solid var(--line-strong);
   outline: none;
+  cursor: pointer;
+}
+
+.status-dropdown.status-active {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border-color: #a5d6a7;
+}
+
+.status-dropdown.status-inactive {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-color: #ef9a9a;
 }
 
 .status-dropdown.pending, .status-pill.pending { background: #fff8e1; color: #b78103; }

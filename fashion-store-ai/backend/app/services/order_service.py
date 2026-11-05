@@ -177,7 +177,40 @@ class OrderService:
         allowed = {"pending", "confirmed", "shipping", "completed", "cancelled"}
         if status_value not in allowed:
             raise HTTPException(status_code=400, detail="Invalid order status")
+
+        # Thứ tự trạng thái: trạng thái chỉ được chuyển tiến, không được chuyển ngược
+        status_order = ["pending", "confirmed", "shipping", "completed"]
+
         db = get_database()
+        order = await db.orders.find_one({"_id": to_object_id(order_id)})
+        if not order:
+            raise HTTPException(status_code=404, detail="Order not found")
+
+        current_status = order.get("status", "pending")
+
+        # Không thể thay đổi trạng thái của đơn đã hoàn thành hoặc đã hủy
+        if current_status in ("completed", "cancelled"):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Không thể thay đổi trạng thái đơn hàng đã '{current_status}'"
+            )
+
+        # Không cho phép chuyển ngược (chỉ huỷ là ngoại lệ từ bất kỳ trạng thái nào)
+        if status_value != "cancelled":
+            current_idx = status_order.index(current_status) if current_status in status_order else -1
+            new_idx = status_order.index(status_value) if status_value in status_order else -1
+            if new_idx < current_idx:
+                status_labels = {
+                    "pending": "Chờ xác nhận",
+                    "confirmed": "Đã duyệt đơn",
+                    "shipping": "Đang giao hàng",
+                    "completed": "Giao thành công",
+                }
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Không thể chuyển trạng thái từ '{status_labels.get(current_status, current_status)}' về '{status_labels.get(status_value, status_value)}'. Trạng thái chỉ được chuyển tiến."
+                )
+
         result = await db.orders.find_one_and_update(
             {"_id": to_object_id(order_id)},
             {"$set": {"status": status_value, "updated_at": datetime.utcnow()}},
