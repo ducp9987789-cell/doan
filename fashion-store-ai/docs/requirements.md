@@ -14,7 +14,9 @@
 - Manage order statuses
 - Manage promotions
 - Manage FAQ and store policies
-- Reindex chatbot knowledge into Chroma
+- Reindex chatbot knowledge into Qdrant
+- Persist chat sessions in Redis
+- Cache RAG retrieval results in Redis
 
 ## Chatbot
 - Answer product and policy questions with RAG

@@ -20,11 +20,16 @@
 - images, colors, sizes, variants
 - tags, stock, is_featured, is_active
 
-## Chatbot knowledge sources
+## Chatbot knowledge sources (RAG)
 
-Indexed into Chroma collection `fashion_knowledge`:
+Indexed into Qdrant collection `fashion_knowledge`:
 
 - active products
 - FAQ
 - promotions
 - store shipping/return policies
+
+## Redis
+
+- `chat:session:{session_id}` — conversation turns for the shopping agent (TTL)
+- `rag:cache:{hash}` — short-lived RAG retrieval cache (invalidated on reindex)

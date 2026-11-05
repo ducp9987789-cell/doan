@@ -1,4 +1,4 @@
-"""Backward-compatible wrappers around ai-core vector memory."""
+"""Backward-compatible wrappers around ai-core Qdrant vector memory."""
 
 
 async def upsert_documents(documents):

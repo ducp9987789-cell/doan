@@ -28,7 +28,9 @@ def init_ai_core() -> None:
         return await build_knowledge_documents(get_database())
 
     bootstrap_ai_core(
-        chroma_persist_dir=settings.chroma_persist_dir,
+        qdrant_url=settings.qdrant_url,
+        qdrant_collection=settings.qdrant_collection,
+        qdrant_api_key=settings.qdrant_api_key,
         llm_provider=settings.llm_provider,
         openai_api_key=settings.openai_api_key,
         openai_model=settings.openai_model,
@@ -37,4 +39,13 @@ def init_ai_core() -> None:
         gemini_model=settings.gemini_model,
         db_getter=get_database,
         document_loader=document_loader,
+        redis_session_ttl_seconds=settings.redis_session_ttl_seconds,
+        redis_rag_cache_ttl_seconds=settings.redis_rag_cache_ttl_seconds,
     )
+
+
+def attach_redis_to_ai_core(redis_client) -> None:
+    ensure_ai_core_on_path()
+    from bootstrap import bind_redis
+
+    bind_redis(redis_client)

@@ -4,7 +4,7 @@ from typing import Any
 
 
 async def build_knowledge_documents(db: Any) -> list[dict[str, Any]]:
-    """Load MongoDB store data into RAG documents for Chroma indexing."""
+    """Load MongoDB store data into RAG documents for Qdrant indexing."""
     documents: list[dict[str, Any]] = []
 
     products = await db.products.find({"is_active": True}).to_list(length=1000)

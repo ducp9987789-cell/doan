@@ -1,13 +1,14 @@
 # Fashion Store AI
 
-Online fashion store with Vue frontend, FastAPI backend, MongoDB, and a RAG chatbot (Chroma + OpenAI/Gemini).
+Online fashion store with Vue frontend, FastAPI backend, MongoDB, and a RAG chatbot (Qdrant + Redis + OpenAI/Gemini).
 
 ## Stack
 
 - Frontend: Vue 3, Vite, Pinia, Vue Router
 - Backend: FastAPI, Pydantic, JWT
 - Database: MongoDB
-- Vector DB: Chroma
+- Vector DB: Qdrant (RAG embeddings)
+- Cache / session: Redis (chat history + RAG query cache)
 - AI core: `backend/ai-core/` (llm, memory, prompts, tool, agents, tests)
 - AI: OpenAI or Gemini (RAG), with local demo fallback when API keys are missing
 - Deploy: Docker Compose
@@ -44,6 +45,8 @@ docker compose up --build
 - Frontend: http://localhost:3000
 - Backend API docs: http://localhost:8000/docs
 - Health: http://localhost:8000/health
+- Qdrant dashboard: http://localhost:6333/dashboard
+- Redis: localhost:6379
 
 ## Local development
 
@@ -110,4 +113,6 @@ LLM_PROVIDER=gemini
 GEMINI_API_KEY=your_key
 ```
 
-Nếu không có API key, chatbot vẫn hoạt động ở chế độ demo (fallback tìm kiếm sản phẩm & thông tin qua ChromaDB).
+Nếu không có API key, chatbot vẫn hoạt động ở chế độ demo (fallback tìm kiếm sản phẩm & thông tin qua Qdrant).
+
+Redis lưu lịch sử hội thoại theo `session_id` (TTL mặc định 24h) và cache kết quả truy vấn RAG ngắn hạn. Qdrant lưu vector tri thức (sản phẩm, FAQ, khuyến mãi, chính sách cửa hàng).

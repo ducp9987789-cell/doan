@@ -6,6 +6,7 @@ from typing import Optional
 from agents.base import AgentResult, BaseAgent
 from llm.base import LLMProvider
 from memory.chat_memory import ChatMemory
+from memory.redis_memory import RedisChatSessionStore
 from prompts.shopping import SYSTEM_PROMPT, build_shopping_prompt, fallback_answer
 from tool.knowledge_retriever import KnowledgeRetrieverTool
 from tool.product_search import ProductSearchTool
@@ -14,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class ShoppingAgent(BaseAgent):
-    """RAG shopping assistant agent."""
+    """RAG shopping assistant agent backed by Qdrant retrieval + Redis sessions."""
 
     name = "shopping_agent"
 
@@ -23,20 +24,16 @@ class ShoppingAgent(BaseAgent):
         llm: LLMProvider,
         retriever: KnowledgeRetrieverTool,
         product_search: ProductSearchTool,
+        session_store: Optional[RedisChatSessionStore] = None,
     ) -> None:
         self.llm = llm
         self.retriever = retriever
         self.product_search = product_search
-        self._sessions: dict[str, ChatMemory] = {}
-
-    def _memory(self, session_id: str) -> ChatMemory:
-        if session_id not in self._sessions:
-            self._sessions[session_id] = ChatMemory(session_id=session_id)
-        return self._sessions[session_id]
+        self.session_store = session_store or RedisChatSessionStore()
 
     async def run(self, message: str, *, session_id: Optional[str] = None) -> AgentResult:
         session_key = session_id or "anonymous"
-        memory = self._memory(session_key)
+        memory: ChatMemory = await self.session_store.get(session_key)
         memory.add_user(message)
 
         contexts = await self.retriever.run(query=message, n_results=5)
@@ -52,6 +49,7 @@ class ShoppingAgent(BaseAgent):
 
         suggested = await self.product_search.run(query=message, limit=3)
         memory.add_assistant(answer)
+        await self.session_store.save(memory)
 
         sources = [
             {
@@ -65,5 +63,10 @@ class ShoppingAgent(BaseAgent):
             answer=answer,
             sources=sources,
             suggested_products=suggested,
-            metadata={"session_id": session_key, "context_count": len(contexts)},
+            metadata={
+                "session_id": session_key,
+                "context_count": len(contexts),
+                "vector_backend": "qdrant",
+                "session_backend": "redis" if self.session_store.redis is not None else "memory",
+            },
         )

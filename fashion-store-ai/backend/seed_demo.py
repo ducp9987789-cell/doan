@@ -7,7 +7,7 @@ Tạo dữ liệu mẫu hoàn chỉnh:
 - Admin:  Admin@fashion.vn   / Admin@123
 - Khách:  Tenant@fashion.vn  / Tenant@123
 - Danh mục, sản phẩm thời trang phong phú, FAQs, khuyến mãi, đơn hàng demo.
-- Tự động nạp dữ liệu vector vào ChromaDB cho Chatbot AI.
+- Tự động nạp dữ liệu vector vào Qdrant cho Chatbot AI.
 """
 
 from __future__ import annotations
@@ -535,12 +535,12 @@ async def run_seed(reset_db: bool = False):
         print(f"  [*] Đơn hàng cho {tenant_email} đã tồn tại.")
 
     # 9. Reindex Vector Store cho AI Chatbot
-    print("\n🧠 Nạp dữ liệu Vector Store ChromaDB cho Chatbot AI:")
+    print("\n🧠 Nạp dữ liệu Vector Store Qdrant cho Chatbot AI:")
     try:
         indexed_count = await ChatService.reindex_knowledge()
-        print(f"  [+] Đã đánh chỉ mục {indexed_count} tài liệu kiến thức vào ChromaDB.")
+        print(f"  [+] Đã đánh chỉ mục {indexed_count} tài liệu kiến thức vào Qdrant.")
     except Exception as e:
-        print(f"  [!] Lưu ý: Reindex ChromaDB ({e})")
+        print(f"  [!] Lưu ý: Reindex Qdrant ({e})")
 
     # Đóng kết nối
     await close_mongo_connection()

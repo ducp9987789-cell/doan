@@ -15,6 +15,16 @@ class Settings(BaseSettings):
 
     mongodb_uri: str = "mongodb://localhost:27017"
     mongodb_db: str = "fashion_store"
+
+    redis_url: str = "redis://localhost:6379/0"
+    redis_session_ttl_seconds: int = 86400
+    redis_rag_cache_ttl_seconds: int = 300
+
+    qdrant_url: str = "http://localhost:6333"
+    qdrant_api_key: str = ""
+    qdrant_collection: str = "fashion_knowledge"
+
+    # Kept for backward compatibility with older .env files; unused by Qdrant path.
     chroma_persist_dir: str = "./data/chroma"
 
     llm_provider: str = "openai"

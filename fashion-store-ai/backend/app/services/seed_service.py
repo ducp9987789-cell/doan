@@ -454,7 +454,7 @@ async def seed_database() -> dict[str, Any]:
             ]
             await db.orders.insert_many(orders_demo)
 
-    # 8. Reindex AI ChromaDB Knowledge
+    # 8. Reindex AI Qdrant knowledge
     indexed = await ChatService.reindex_knowledge()
     return {
         "users": await db.users.count_documents({}),

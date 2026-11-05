@@ -485,11 +485,11 @@
         <div class="page-top-bar">
           <div>
             <h1 class="page-title">🤖 Quản lý dữ liệu Chatbot AI Stylist</h1>
-            <p class="page-desc">Quản lý các câu hỏi thường gặp (FAQs), đồng bộ dữ liệu Vector DB (ChromaDB) và xem nhật ký hội thoại của khách.</p>
+            <p class="page-desc">Quản lý các câu hỏi thường gặp (FAQs), đồng bộ dữ liệu Vector DB (Qdrant) và xem nhật ký hội thoại của khách.</p>
           </div>
           <div class="action-buttons">
             <button class="btn btn-reindex" :disabled="reindexing" @click="handleReindex">
-              {{ reindexing ? '⏳ Đang đồng bộ...' : '⚡ Đồng bộ dữ liệu AI (ChromaDB)' }}
+              {{ reindexing ? '⏳ Đang đồng bộ...' : '⚡ Đồng bộ dữ liệu AI (Qdrant)' }}
             </button>
           </div>
         </div>
@@ -2136,7 +2136,7 @@ async function handleReindex() {
   reindexResult.value = ''
   try {
     const { data } = await chatApi.reindex()
-    reindexResult.value = `✓ Đồng bộ thành công! Đã nạp ${data.indexed_documents} tài liệu sản phẩm & FAQ vào Vector Store ChromaDB.`
+    reindexResult.value = `✓ Đồng bộ thành công! Đã nạp ${data.indexed_documents} tài liệu sản phẩm & FAQ vào Vector Store Qdrant.`
     addLog('chatbot', 'update', 'Đồng bộ dữ liệu Vector DB', `Đã đánh chỉ mục ${data.indexed_documents} tài liệu`)
   } catch {
     reindexResult.value = 'Lỗi đồng bộ dữ liệu. Vui lòng kiểm tra lại dịch vụ AI Core.'
