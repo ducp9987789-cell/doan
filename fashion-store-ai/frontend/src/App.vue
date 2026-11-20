@@ -16,7 +16,7 @@
     >
       <RouterView />
     </main>
-    <ChatWidget v-if="!isAuthPage && !isAdminPage" />
+    <ChatWidget v-if="!isAuthPage" />
     <AppFooter v-if="!isAuthPage && !isAdminPage" />
   </div>
 </template>

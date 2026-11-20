@@ -40,12 +40,6 @@
           <span v-if="item.badge" class="nav-badge">{{ item.badge }}</span>
         </button>
       </nav>
-
-      <div class="sidebar-footer">
-        <button class="btn-sidebar-link text-danger" @click="handleLogout">
-          <span>🚪 Đăng xuất quản trị</span>
-        </button>
-      </div>
     </aside>
 
     <!-- Nút 3 gạch: cạnh mép phải sidebar khi mở / góc trên trái khi ẩn -->
@@ -62,8 +56,72 @@
       </span>
     </button>
 
-    <!-- KHU VỰC NỘI DUNG CHÍNH (MAIN ADMIN CONTENT) -->
-    <main ref="adminMainRef" class="admin-main" @scroll="onMainScroll">
+    <!-- KHU VỰC NỘI DUNG CHÍNH (CONTENT WRAPPER) -->
+    <div class="admin-content-wrapper">
+      <!-- HEADER TRANG QUẢN TRỊ: Tên trang bên trái + Avatar & Menu bên phải -->
+      <header class="admin-topbar">
+        <div class="admin-topbar-left">
+          <span class="admin-topbar-icon">{{ currentSectionIcon }}</span>
+          <h1 class="admin-topbar-title">{{ currentSectionTitle }}</h1>
+        </div>
+
+        <div class="admin-topbar-right">
+          <div class="admin-topbar-dropdown-wrap" v-click-outside="() => showAdminDropdown = false">
+            <button
+              class="admin-avatar-btn"
+              type="button"
+              :class="{ 'is-active': showAdminDropdown }"
+              @click="showAdminDropdown = !showAdminDropdown"
+              title="Tài khoản quản trị"
+            >
+              <div class="admin-avatar-circle">{{ adminInitial }}</div>
+            </button>
+
+            <!-- Dropdown Menu -->
+            <div v-if="showAdminDropdown" class="admin-dropdown-menu">
+              <div class="admin-dropdown-header">
+                <div class="admin-dropdown-avatar">{{ adminInitial }}</div>
+                <div class="admin-dropdown-info">
+                  <strong class="admin-dropdown-name">{{ auth.user?.full_name || 'Admin Quản Trị' }}</strong>
+                  <small class="admin-dropdown-email">{{ auth.user?.email }}</small>
+                  <span class="admin-dropdown-badge">👑 Quản Trị Viên</span>
+                </div>
+              </div>
+
+              <div class="admin-dropdown-divider"></div>
+
+              <!-- Cài đặt thông tin shop -->
+              <button class="admin-dropdown-item" type="button" @click="goAdminSettings">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="3"></circle>
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                </svg>
+                <div class="admin-dropdown-item-text">
+                  <span class="admin-dropdown-item-title">Cài đặt</span>
+                  <small class="admin-dropdown-item-sub">Quản lý thông tin shop</small>
+                </div>
+              </button>
+
+              <div class="admin-dropdown-divider"></div>
+
+              <!-- Đăng xuất -->
+              <button class="admin-dropdown-item item-logout" type="button" @click="handleLogout">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                  <polyline points="16 17 21 12 16 7"></polyline>
+                  <line x1="21" y1="12" x2="9" y2="12"></line>
+                </svg>
+                <div class="admin-dropdown-item-text">
+                  <span class="admin-dropdown-item-title text-danger">Đăng xuất</span>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- KHU VỰC NỘI DUNG CHÍNH (MAIN ADMIN CONTENT) -->
+      <main ref="adminMainRef" class="admin-main" @scroll="onMainScroll">
       <!-- 1. DASHBOARD / TỔNG QUAN -->
       <section v-if="currentSection === 'dashboard'" class="section-content fade-up">
         <div class="page-top-bar">
@@ -639,6 +697,7 @@
     >
       ↑
     </button>
+    </div> <!-- Kết thúc admin-content-wrapper -->
 
     <!-- ==================== CÁC MODAL FORM TƯƠNG ỨNG ==================== -->
 
@@ -1153,7 +1212,7 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import * as XLSX from 'xlsx'
 import JSZip from 'jszip'
 import AdminActivityLog from '../components/admin/AdminActivityLog.vue'
@@ -1166,6 +1225,30 @@ import { useAuthStore } from '../stores/auth'
 const auth = useAuthStore()
 const router = useRouter()
 const route = useRoute()
+
+// Avatar dropdown góc phải topbar
+const showAdminDropdown = ref(false)
+const adminInitial = computed(() => {
+  const name = auth.user?.full_name || auth.user?.email || 'A'
+  return name.trim().charAt(0).toUpperCase()
+})
+function goAdminSettings() {
+  showAdminDropdown.value = false
+  currentSection.value = 'store_info'
+}
+
+// Directive click-outside
+const vClickOutside = {
+  mounted(el, binding) {
+    el._clickOutsideHandler = (event) => {
+      if (!el.contains(event.target)) binding.value(event)
+    }
+    document.addEventListener('mousedown', el._clickOutsideHandler)
+  },
+  unmounted(el) {
+    document.removeEventListener('mousedown', el._clickOutsideHandler)
+  },
+}
 
 const currentSection = ref(route.query.section || 'dashboard')
 const loading = ref(false)
@@ -1193,6 +1276,16 @@ const menuItems = [
   { key: 'store_info', label: 'Quản lý thông tin shop', icon: '🏪' },
   { key: 'chatbot', label: 'Dữ liệu Chatbot AI', icon: '🤖' },
 ]
+
+const currentSectionTitle = computed(() => {
+  const item = menuItems.find((m) => m.key === currentSection.value)
+  return item ? item.label : 'Quản trị hệ thống'
+})
+
+const currentSectionIcon = computed(() => {
+  const item = menuItems.find((m) => m.key === currentSection.value)
+  return item ? item.icon : '⚙️'
+})
 
 function selectSection(key) {
   currentSection.value = key
@@ -2663,17 +2756,20 @@ onUnmounted(() => {
 }
 
 .user-avatar {
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
   flex-shrink: 0;
   border-radius: 50%;
-  background: var(--accent);
+  background: linear-gradient(135deg, #0f766e, #14b8a6);
   color: #ffffff;
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.9rem;
+  font-size: 1rem;
+  box-shadow: 0 2px 8px rgba(20, 184, 166, 0.45);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
 }
 
 .user-details {
@@ -2849,9 +2945,9 @@ onUnmounted(() => {
 
 .btn-back-to-top {
   position: fixed;
-  right: 1.4rem;
-  bottom: 1.4rem;
-  z-index: 60;
+  right: 5.5rem;
+  bottom: 1.5rem;
+  z-index: 990;
   width: 46px;
   height: 46px;
   border: none;
@@ -3729,4 +3825,239 @@ onUnmounted(() => {
     max-width: 100%;
   }
 }
+
+/* ===== ADMIN CONTENT WRAPPER & TOPBAR HEADER ===== */
+.admin-content-wrapper {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #f4efe7;
+  position: relative;
+}
+
+.admin-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+  min-height: 64px;
+  padding: 0 clamp(1.4rem, 2.6vw, 2.6rem);
+  background: #ffffff;
+  border-bottom: 1px solid rgba(25, 23, 20, 0.08);
+  box-shadow: 0 1px 4px rgba(28, 25, 21, 0.04);
+  z-index: 60;
+  flex-shrink: 0;
+  transition: padding-left 0.25s ease;
+}
+
+.admin-layout.sidebar-collapsed .admin-topbar {
+  padding-left: clamp(3.4rem, 5vw, 4.2rem);
+}
+
+.admin-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.admin-topbar-icon {
+  font-size: 1.4rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.admin-topbar-title {
+  margin: 0;
+  font-size: 1.22rem;
+  font-weight: 700;
+  color: #1c1915;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ===== ADMIN TOPBAR AVATAR - GÓC PHẢI ===== */
+.admin-topbar-right {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.admin-topbar-dropdown-wrap {
+  position: relative;
+}
+
+.admin-avatar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  outline: none;
+  transition: transform 0.15s ease;
+}
+
+.admin-avatar-btn:hover {
+  transform: scale(1.07);
+}
+
+.admin-avatar-circle {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0f766e, #14b8a6);
+  color: #fff;
+  font-weight: 700;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(20, 184, 166, 0.45);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  transition: box-shadow 0.15s ease;
+}
+
+.admin-avatar-btn.is-active .admin-avatar-circle,
+.admin-avatar-btn:hover .admin-avatar-circle {
+  box-shadow: 0 4px 14px rgba(20, 184, 166, 0.55);
+}
+
+.admin-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 256px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.14), 0 6px 12px -4px rgba(15, 23, 42, 0.06);
+  padding: 0.5rem 0;
+  z-index: 1200;
+  animation: adminDropFadeIn 0.15s ease-out;
+}
+
+@keyframes adminDropFadeIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.admin-dropdown-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+}
+
+.admin-dropdown-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0f766e, #14b8a6);
+  color: #fff;
+  font-weight: 700;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+
+.admin-dropdown-info {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.admin-dropdown-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.admin-dropdown-email {
+  font-size: 0.77rem;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+}
+
+.admin-dropdown-badge {
+  display: inline-block;
+  align-self: flex-start;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  margin-top: 4px;
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.admin-dropdown-divider {
+  height: 1px;
+  background: #f1f5f9;
+  margin: 0.35rem 0;
+}
+
+.admin-dropdown-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 1rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease;
+  color: #334155;
+}
+
+.admin-dropdown-item:hover {
+  background: #f8fafc;
+  color: #0f766e;
+}
+
+.admin-dropdown-item-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-dropdown-item-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.admin-dropdown-item-sub {
+  font-size: 0.74rem;
+  color: #94a3b8;
+  margin-top: 1px;
+}
+
+.admin-dropdown-item.item-logout:hover {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.admin-dropdown-item .text-danger {
+  color: #dc2626 !important;
+}
+
 </style>
