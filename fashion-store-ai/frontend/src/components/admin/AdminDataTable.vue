@@ -84,7 +84,7 @@
                     <input
                       v-model="columnFilters[col.key]"
                       type="text"
-                      :placeholder="`Lọc ${col.label}...`"
+                      :placeholder="`${col.label}...`"
                       class="col-filter-input combobox-input"
                       @focus="openDropdown(col.key)"
                       @input="openDropdown(col.key)"
@@ -147,7 +147,7 @@
                   v-else
                   v-model="columnFilters[col.key]"
                   type="text"
-                  :placeholder="`Lọc ${col.label}...`"
+                  :placeholder="`${col.label}...`"
                   class="col-filter-input"
                 />
               </div>

@@ -10,19 +10,24 @@
       </div>
 
       <div class="header-right" v-if="logs.length > 0">
+        <span class="log-count muted">Hiển thị {{ visibleLogs.length }}/{{ logs.length }}</span>
         <button class="btn-clear-log" @click="$emit('clear')" title="Xóa lịch sử tạm thời">
           🗑️ Xóa lịch sử
         </button>
       </div>
     </div>
 
-    <!-- Danh sách timeline lịch sử -->
     <div v-if="logs.length === 0" class="empty-log">
       <p class="muted">Chưa có hoạt động nào được ghi nhận trong phiên này.</p>
     </div>
 
-    <div v-else class="timeline-list">
-      <div v-for="(log, idx) in logs" :key="log.id || idx" class="timeline-item">
+    <div
+      v-else
+      ref="listRef"
+      class="timeline-list"
+      @scroll="onListScroll"
+    >
+      <div v-for="(log, idx) in visibleLogs" :key="log.id || idx" class="timeline-item">
         <div class="timeline-dot-wrapper">
           <div class="timeline-dot" :class="log.type || 'info'">
             <span v-if="log.icon">{{ log.icon }}</span>
@@ -32,7 +37,7 @@
             <span v-else-if="log.type === 'status'">🔄</span>
             <span v-else>📌</span>
           </div>
-          <div class="timeline-line" v-if="idx < logs.length - 1"></div>
+          <div class="timeline-line" v-if="idx < visibleLogs.length - 1"></div>
         </div>
 
         <div class="timeline-content">
@@ -46,17 +51,50 @@
           </div>
         </div>
       </div>
+
+      <div v-if="hasMore" class="load-more-hint muted">Kéo xuống để tải thêm...</div>
+      <div v-else-if="logs.length > PAGE_SIZE" class="load-more-hint muted">Đã hiển thị toàn bộ lịch sử.</div>
     </div>
   </div>
 </template>
 
 <script setup>
-defineProps({
+import { computed, nextTick, ref, watch } from 'vue'
+
+const PAGE_SIZE = 10
+
+const props = defineProps({
   logs: { type: Array, default: () => [] },
   title: { type: String, default: 'Lịch sử hoạt động gần đây' },
 })
 
 defineEmits(['clear'])
+
+const listRef = ref(null)
+const visibleCount = ref(PAGE_SIZE)
+
+const visibleLogs = computed(() => props.logs.slice(0, visibleCount.value))
+const hasMore = computed(() => visibleCount.value < props.logs.length)
+
+watch(
+  () => props.logs,
+  () => {
+    visibleCount.value = PAGE_SIZE
+    nextTick(() => {
+      if (listRef.value) listRef.value.scrollTop = 0
+    })
+  },
+  { deep: true },
+)
+
+function onListScroll() {
+  const el = listRef.value
+  if (!el || !hasMore.value) return
+  const nearBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 40
+  if (nearBottom) {
+    visibleCount.value = Math.min(visibleCount.value + PAGE_SIZE, props.logs.length)
+  }
+}
 
 function formatTime(timestamp) {
   if (!timestamp) return 'Vừa xong'
@@ -90,6 +128,16 @@ function formatTime(timestamp) {
   display: flex;
   align-items: center;
   gap: 0.8rem;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.log-count {
+  font-size: 0.78rem;
 }
 
 .activity-icon {
@@ -136,6 +184,10 @@ function formatTime(timestamp) {
   display: flex;
   flex-direction: column;
   gap: 0;
+  max-height: 520px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 0.35rem;
 }
 
 .timeline-item {
@@ -231,5 +283,11 @@ function formatTime(timestamp) {
 .log-meta {
   margin-top: 0.4rem;
   font-size: 0.78rem;
+}
+
+.load-more-hint {
+  text-align: center;
+  font-size: 0.78rem;
+  padding: 0.35rem 0 0.2rem;
 }
 </style>

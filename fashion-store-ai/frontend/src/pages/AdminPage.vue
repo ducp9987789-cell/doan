@@ -1,9 +1,15 @@
 <template>
-  <div class="admin-layout">
+  <div class="admin-layout" :class="{ 'sidebar-open': sidebarOpen, 'sidebar-collapsed': !sidebarOpen }">
+    <div
+      v-if="sidebarOpen"
+      class="sidebar-backdrop"
+      @click="sidebarOpen = false"
+    ></div>
+
     <!-- PANEL BÊN TRÁI: MENU QUẢN TRỊ VIÊN -->
-    <aside class="admin-sidebar">
+    <aside class="admin-sidebar" :class="{ open: sidebarOpen }">
       <div class="sidebar-header">
-        <RouterLink to="/" class="sidebar-brand">
+        <RouterLink to="/" class="sidebar-brand" @click="closeSidebarOnMobile">
           <div class="brand-badge-icon">AI</div>
           <div class="brand-info">
             <span class="brand-title">FASHION STORE</span>
@@ -27,7 +33,7 @@
           :key="item.key"
           class="nav-item-btn"
           :class="{ active: currentSection === item.key }"
-          @click="currentSection = item.key"
+          @click="selectSection(item.key)"
         >
           <span class="nav-icon">{{ item.icon }}</span>
           <span class="nav-label">{{ item.label }}</span>
@@ -42,42 +48,48 @@
       </div>
     </aside>
 
+    <!-- Nút 3 gạch: cạnh mép phải sidebar khi mở / góc trên trái khi ẩn -->
+    <button
+      class="btn-sidebar-edge"
+      type="button"
+      :class="{ 'is-open': sidebarOpen }"
+      :title="sidebarOpen ? 'Ẩn menu' : 'Hiện menu'"
+      :aria-label="sidebarOpen ? 'Ẩn menu' : 'Hiện menu'"
+      @click="sidebarOpen = !sidebarOpen"
+    >
+      <span class="hamburger-icon" aria-hidden="true">
+        <i></i><i></i><i></i>
+      </span>
+    </button>
+
     <!-- KHU VỰC NỘI DUNG CHÍNH (MAIN ADMIN CONTENT) -->
-    <main class="admin-main">
+    <main ref="adminMainRef" class="admin-main" @scroll="onMainScroll">
       <!-- 1. DASHBOARD / TỔNG QUAN -->
       <section v-if="currentSection === 'dashboard'" class="section-content fade-up">
         <div class="page-top-bar">
           <div>
             <h1 class="page-title">📊 Tổng quan hệ thống (Dashboard)</h1>
-            <p class="page-desc">Theo dõi các chỉ số kinh doanh, đơn hàng mới, sản phẩm bán chạy và tình trạng chatbot AI.</p>
+            <p class="page-desc">Theo dõi tổng đơn, đơn cần xử lý, doanh thu và biểu đồ theo ngày.</p>
           </div>
-          <button class="btn secondary" @click="loadAllData">
+          <button class="btn secondary" @click="refreshDashboard">
             🔄 Làm mới số liệu
           </button>
         </div>
 
-        <!-- Thẻ thống kê số liệu -->
-        <div class="stats-overview-grid">
+        <div class="stats-overview-grid stats-overview-3">
           <div class="stat-box clickable" @click="currentSection = 'orders'">
             <div class="stat-icon-wrapper bg-blue">📦</div>
             <div class="stat-meta">
-              <span class="stat-label">Tổng đơn hàng</span>
-              <strong class="stat-number">{{ dashboard.orders || 0 }}</strong>            </div>
-          </div>
-
-          <div class="stat-box clickable" @click="currentSection = 'products'">
-            <div class="stat-icon-wrapper bg-green">👗</div>
-            <div class="stat-meta">
-              <span class="stat-label">Sản phẩm thời trang</span>
-              <strong class="stat-number">{{ dashboard.products || 0 }}</strong>
+              <span class="stat-label">Tổng đơn</span>
+              <strong class="stat-number">{{ dashboard.orders || 0 }}</strong>
             </div>
           </div>
 
-          <div class="stat-box clickable" @click="currentSection = 'categories'">
-            <div class="stat-icon-wrapper bg-orange">📂</div>
+          <div class="stat-box clickable" @click="currentSection = 'orders'">
+            <div class="stat-icon-wrapper bg-orange">⏳</div>
             <div class="stat-meta">
-              <span class="stat-label">Danh mục sản phẩm</span>
-              <strong class="stat-number">{{ categories.length || 0 }}</strong>
+              <span class="stat-label">Đơn cần xử lý</span>
+              <strong class="stat-number">{{ dashboard.pending_orders || 0 }}</strong>
             </div>
           </div>
 
@@ -90,52 +102,121 @@
           </div>
         </div>
 
-        <!-- Bảng đơn hàng gần đây trên Dashboard -->
-        <div class="dashboard-recent-grid">
-          <div class="panel">
-            <div class="panel-header-row">
-              <h3>Đơn hàng mới nhất</h3>
-              <button class="btn secondary btn-sm" @click="currentSection = 'orders'">Xem tất cả đơn</button>
-            </div>
-            <AdminDataTable
-              :columns="dashboardOrderColumns"
-              :rows="orders.slice(0, 5)"
-              :loading="loading"
-              emptyText="Chưa có đơn hàng nào."
-              @reload="loadOrders"
-            >
-              <template #cell-status="{ value }">
-                <span class="status-pill" :class="value">{{ formatStatus(value) }}</span>
-              </template>
-              <template #cell-total="{ value }">
-                <strong>{{ formatPrice(value) }}</strong>
-              </template>
-            </AdminDataTable>
-          </div>
+        <div class="dashboard-charts-grid">
+          <AdminBarChart
+            title="Biểu đồ doanh thu theo ngày"
+            subtitle="Không tính đơn đã hủy"
+            format="currency"
+            :labels="chartLabels"
+            :values="chartRevenue"
+            v-model:dateFrom="chartFrom"
+            v-model:dateTo="chartTo"
+            @change="loadDashboardCharts"
+          />
+          <AdminBarChart
+            title="Biểu đồ đơn theo ngày"
+            subtitle="Tổng số đơn tạo theo từng ngày"
+            format="number"
+            :labels="chartLabels"
+            :values="chartOrders"
+            v-model:dateFrom="chartFrom"
+            v-model:dateTo="chartTo"
+            @change="loadDashboardCharts"
+          />
+        </div>
 
-          <div class="panel">
-            <div class="panel-header-row">
-              <h3>Sản phẩm nổi bật (Featured)</h3>
-              <button class="btn secondary btn-sm" @click="currentSection = 'products'">Quản lý sản phẩm</button>
+        <div class="panel mb-4">
+          <div class="panel-header-row">
+            <div>
+              <h3>Đơn chưa xử lý trong ngày</h3>
+              <p class="page-desc" style="margin: 0.2rem 0 0">Danh sách đơn pending/confirmed phát sinh hôm nay (có phân trang).</p>
             </div>
-            <div class="featured-list">
-              <div v-for="item in featuredProducts" :key="item.id" class="featured-item-row">
-                <img :src="item.images?.[0] || 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800'" />
-                <div class="f-info">
-                  <strong>{{ item.name }}</strong>
-                  <small class="muted">{{ item.category_name }} · {{ formatPrice(item.sale_price || item.price) }}</small>
-                </div>
-                <span class="badge-tag">Hot</span>
+            <button class="btn secondary btn-sm" @click="currentSection = 'orders'">Xem tất cả đơn</button>
+          </div>
+          <AdminDataTable
+            :columns="dashboardPendingOrderColumns"
+            :rows="todayPendingOrders"
+            :loading="loading"
+            emptyText="Không có đơn chưa xử lý trong ngày."
+            @reload="refreshDashboard"
+          >
+            <template #cell-id="{ value }">
+              <strong>#{{ String(value).slice(-6).toUpperCase() }}</strong>
+            </template>
+            <template #cell-customer="{ row }">
+              <div>
+                <strong>{{ row.shipping_address?.full_name || 'Khách vãng lai' }}</strong>
+                <small class="d-block muted">{{ row.shipping_address?.phone }}</small>
               </div>
-            </div>
+            </template>
+            <template #cell-total="{ value }">
+              <strong class="text-accent">{{ formatPrice(value) }}</strong>
+            </template>
+            <template #cell-status="{ value }">
+              <span class="status-pill" :class="value">{{ formatStatus(value) }}</span>
+            </template>
+            <template #cell-actions="{ row }">
+              <div class="table-actions">
+                <button class="btn-action-view" @click="openOrderDetailModal(row)">👁️ Chi tiết</button>
+              </div>
+            </template>
+          </AdminDataTable>
+        </div>
+      </section>
+
+      <!-- 2. QUẢN LÝ NGƯỜI DÙNG -->
+      <section v-else-if="currentSection === 'users'" class="section-content fade-up">
+        <div class="page-top-bar">
+          <div>
+            <h1 class="page-title">👥 Quản lý người dùng</h1>
+            <p class="page-desc">Theo dõi tài khoản khách hàng/admin, phân quyền và trạng thái hoạt động.</p>
           </div>
         </div>
 
-        <!-- Lịch sử hoạt động tổng quát -->
-        <AdminActivityLog :logs="activityLogs" title="Lịch sử hoạt động toàn hệ thống" @clear="clearLogs" />
+        <div class="panel mb-4">
+          <AdminDataTable
+            :columns="userColumns"
+            :rows="users"
+            :loading="loading"
+            showAdd
+            addText="Thêm mới"
+            emptyText="Chưa có người dùng nào."
+            @add="openCreateUserModal"
+            @reload="loadUsers"
+          >
+            <template #cell-role="{ value }">
+              <span class="role-pill" :class="value">{{ value === 'admin' ? 'Admin' : 'Customer' }}</span>
+            </template>
+            <template #cell-is_active="{ row }">
+              <select
+                :value="row.is_active !== false"
+                class="status-dropdown"
+                :class="row.is_active !== false ? 'status-active' : 'status-inactive'"
+                @change="handleToggleUserActive(row, $event.target.value === 'true')"
+              >
+                <option :value="true">Đang hoạt động</option>
+                <option :value="false">Tạm khóa</option>
+              </select>
+            </template>
+            <template #cell-created_at="{ value }">
+              <span>{{ formatDate(value) }}</span>
+            </template>
+            <template #cell-actions="{ row }">
+              <div class="table-actions">
+                <button class="btn-action-edit" @click="openEditUserModal(row)" title="Chỉnh sửa">✏️ Sửa</button>
+              </div>
+            </template>
+          </AdminDataTable>
+        </div>
+
+        <AdminActivityLog
+          :logs="getSectionLogs('user')"
+          title="Lịch sử thao tác Người dùng"
+          @clear="clearLogs"
+        />
       </section>
 
-      <!-- 2. QUẢN LÝ DANH MỤC SẢN PHẨM -->
+      <!-- 3. QUẢN LÝ DANH MỤC SẢN PHẨM -->
       <section v-else-if="currentSection === 'categories'" class="section-content fade-up">
         <div class="page-top-bar">
           <div>
@@ -545,6 +626,16 @@
         />
       </section>
     </main>
+
+    <button
+      v-show="showBackToTop"
+      class="btn-back-to-top"
+      type="button"
+      title="Về đầu trang"
+      @click="scrollToTop"
+    >
+      ↑
+    </button>
 
     <!-- ==================== CÁC MODAL FORM TƯƠNG ỨNG ==================== -->
 
@@ -997,15 +1088,73 @@
         </button>
       </template>
     </AdminModal>
+
+    <!-- Modal người dùng -->
+    <AdminModal
+      :show="showUserModal"
+      :title="editingUser ? 'Cập nhật người dùng' : 'Thêm người dùng mới'"
+      icon="👥"
+      @close="showUserModal = false"
+    >
+      <form class="modal-form" @submit.prevent="saveUser">
+        <div class="form-row-2">
+          <div class="field">
+            <label>Họ và tên *</label>
+            <input v-model="userForm.full_name" required placeholder="Nguyễn Văn A" />
+          </div>
+          <div class="field">
+            <label>Email *</label>
+            <input v-model="userForm.email" type="email" required :disabled="!!editingUser" placeholder="email@domain.com" />
+          </div>
+        </div>
+        <div class="form-row-2">
+          <div class="field">
+            <label>Số điện thoại</label>
+            <input v-model="userForm.phone" placeholder="09xxxxxxxx" />
+          </div>
+          <div class="field">
+            <label>Vai trò *</label>
+            <select v-model="userForm.role" required>
+              <option value="customer">Customer</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row-2">
+          <div class="field">
+            <label>{{ editingUser ? 'Mật khẩu mới (để trống nếu giữ nguyên)' : 'Mật khẩu *' }}</label>
+            <input
+              v-model="userForm.password"
+              type="password"
+              :required="!editingUser"
+              minlength="6"
+              placeholder="Tối thiểu 6 ký tự"
+            />
+          </div>
+          <div class="field">
+            <label>Trạng thái</label>
+            <select v-model="userForm.is_active">
+              <option :value="true">Đang hoạt động</option>
+              <option :value="false">Tạm khóa</option>
+            </select>
+          </div>
+        </div>
+      </form>
+      <template #footer>
+        <button class="btn secondary" type="button" @click="showUserModal = false">Hủy</button>
+        <button class="btn" type="button" @click="saveUser">{{ editingUser ? 'Lưu thay đổi' : 'Tạo tài khoản' }}</button>
+      </template>
+    </AdminModal>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import * as XLSX from 'xlsx'
 import JSZip from 'jszip'
 import AdminActivityLog from '../components/admin/AdminActivityLog.vue'
+import AdminBarChart from '../components/admin/AdminBarChart.vue'
 import AdminDataTable from '../components/admin/AdminDataTable.vue'
 import AdminModal from '../components/admin/AdminModal.vue'
 import { adminApi, chatApi, orderApi, productApi } from '../services'
@@ -1016,10 +1165,23 @@ const router = useRouter()
 
 const currentSection = ref('dashboard')
 const loading = ref(false)
+const sidebarOpen = ref(typeof window === 'undefined' || window.innerWidth > 1024)
+const adminMainRef = ref(null)
+const showBackToTop = ref(false)
+let lastIsDesktop = typeof window === 'undefined' || window.innerWidth > 1024
+
+function syncSidebarByViewport() {
+  if (typeof window === 'undefined') return
+  const isDesktop = window.innerWidth > 1024
+  if (isDesktop === lastIsDesktop) return
+  lastIsDesktop = isDesktop
+  sidebarOpen.value = isDesktop
+}
 
 // Menu danh sách bên trái
 const menuItems = [
   { key: 'dashboard', label: 'Dashboard', icon: '📊' },
+  { key: 'users', label: 'Quản lý người dùng', icon: '👥' },
   { key: 'categories', label: 'Quản lý danh mục', icon: '📂' },
   { key: 'products', label: 'Quản lý sản phẩm', icon: '👗' },
   { key: 'orders', label: 'Quản lý đơn hàng', icon: '📦' },
@@ -1028,14 +1190,53 @@ const menuItems = [
   { key: 'chatbot', label: 'Dữ liệu Chatbot AI', icon: '🤖' },
 ]
 
+function selectSection(key) {
+  currentSection.value = key
+  closeSidebarOnMobile()
+  scrollToTop()
+}
+
+function closeSidebarOnMobile() {
+  if (typeof window !== 'undefined' && window.innerWidth <= 1024) {
+    sidebarOpen.value = false
+  }
+}
+
+function onMainScroll() {
+  const el = adminMainRef.value
+  if (!el) return
+  showBackToTop.value = el.scrollTop > 360
+}
+
+function scrollToTop() {
+  adminMainRef.value?.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
 // Dữ liệu quản trị
 const dashboard = ref({})
 const categories = ref([])
 const products = ref([])
 const orders = ref([])
+const users = ref([])
 const promotions = ref([])
 const faqs = ref([])
 const chatLogs = ref([])
+
+function defaultChartRange() {
+  const to = new Date()
+  const from = new Date()
+  from.setDate(to.getDate() - 6)
+  const toIso = to.toISOString().slice(0, 10)
+  const fromIso = from.toISOString().slice(0, 10)
+  return { from: fromIso, to: toIso }
+}
+
+const chartRange = defaultChartRange()
+const chartFrom = ref(chartRange.from)
+const chartTo = ref(chartRange.to)
+const chartLabels = ref([])
+const chartRevenue = ref([])
+const chartOrders = ref([])
 
 // Trạng thái Import sản phẩm từ file
 const showImportModal = ref(false)
@@ -1099,6 +1300,17 @@ const faqForm = reactive({ question: '', answer: '', category: 'general' })
 const showOrderModal = ref(false)
 const selectedOrder = ref(null)
 
+const showUserModal = ref(false)
+const editingUser = ref(null)
+const userForm = reactive({
+  full_name: '',
+  email: '',
+  phone: '',
+  role: 'customer',
+  password: '',
+  is_active: true,
+})
+
 const storeForm = reactive({
   name: 'FASHION STORE AI',
   hotline: '1900 6868',
@@ -1127,7 +1339,7 @@ function addLog(section, type, title, description) {
     timestamp: new Date().toISOString(),
   }
   activityLogs.value.unshift(newLog)
-  if (activityLogs.value.length > 50) activityLogs.value.pop()
+  if (activityLogs.value.length > 200) activityLogs.value.pop()
   localStorage.setItem('fs_admin_logs', JSON.stringify(activityLogs.value))
 }
 
@@ -1196,10 +1408,50 @@ const orderColumns = [
   { key: 'actions', label: 'Thao tác', width: '110px', filterable: false, align: 'center' },
 ]
 
-const dashboardOrderColumns = [
-  { key: 'id', label: 'Mã đơn' },
-  { key: 'total', label: 'Tổng tiền' },
-  { key: 'status', label: 'Trạng thái' },
+const dashboardPendingOrderColumns = [
+  { key: 'id', label: 'Mã đơn', width: '120px', sortable: true },
+  { key: 'customer', label: 'Khách hàng', sortable: true },
+  { key: 'total', label: 'Tổng tiền', width: '140px', sortable: true },
+  {
+    key: 'status',
+    label: 'Trạng thái',
+    width: '160px',
+    filterType: 'select',
+    filterOptions: [
+      { label: 'Chờ xác nhận', value: 'pending' },
+      { label: 'Đã duyệt đơn', value: 'confirmed' },
+    ],
+  },
+  { key: 'actions', label: 'Thao tác', width: '120px', filterable: false, align: 'center' },
+]
+
+const userColumns = [
+  { key: 'full_name', label: 'Họ tên', sortable: true },
+  { key: 'email', label: 'Email', sortable: true },
+  { key: 'phone', label: 'Số điện thoại', width: '130px' },
+  {
+    key: 'role',
+    label: 'Vai trò',
+    width: '120px',
+    filterType: 'select',
+    filterOptions: [
+      { label: 'Admin', value: 'admin' },
+      { label: 'Customer', value: 'customer' },
+    ],
+  },
+  {
+    key: 'is_active',
+    label: 'Trạng thái',
+    width: '160px',
+    align: 'center',
+    filterType: 'select',
+    filterOptions: [
+      { label: 'Đang hoạt động', value: 'true' },
+      { label: 'Tạm khóa', value: 'false' },
+    ],
+  },
+  { key: 'created_at', label: 'Ngày tạo', width: '160px', sortable: true, format: 'date' },
+  { key: 'actions', label: 'Thao tác', width: '110px', filterable: false, align: 'center' },
 ]
 
 const promoColumns = [
@@ -1266,6 +1518,16 @@ const featuredProducts = computed(() => {
   return products.value.filter((p) => p.is_featured).slice(0, 5)
 })
 
+const todayPendingOrders = computed(() => {
+  const today = new Date().toISOString().slice(0, 10)
+  const pendingStatuses = new Set(['pending', 'confirmed'])
+  return (orders.value || []).filter((order) => {
+    if (!pendingStatuses.has(order.status)) return false
+    const created = order.created_at ? new Date(order.created_at).toISOString().slice(0, 10) : ''
+    return created === today
+  })
+})
+
 function formatPrice(value) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value || 0)
 }
@@ -1284,21 +1546,52 @@ function handleLogout() {
 }
 
 // ================= API LOADERS =================
+function applyDashboardPayload(data = {}) {
+  dashboard.value = data
+  chartFrom.value = data.chart_from || chartFrom.value
+  chartTo.value = data.chart_to || chartTo.value
+  chartLabels.value = data.charts?.labels || []
+  chartRevenue.value = data.charts?.revenue || []
+  chartOrders.value = data.charts?.orders || []
+}
+
+async function loadDashboardCharts() {
+  try {
+    const { data } = await adminApi.dashboard({
+      chart_from: chartFrom.value,
+      chart_to: chartTo.value,
+    })
+    applyDashboardPayload(data || {})
+  } catch (error) {
+    console.error('Lỗi tải biểu đồ dashboard:', error)
+  }
+}
+
+async function refreshDashboard() {
+  loading.value = true
+  try {
+    await Promise.all([loadDashboardCharts(), loadOrders(), loadUsers()])
+  } finally {
+    loading.value = false
+  }
+}
+
 async function loadAllData() {
   loading.value = true
   try {
-    const [dash, catRes, prodRes, ordRes, promoRes, faqRes, logRes, storeRes] = await Promise.all([
-      adminApi.dashboard(),
+    const [dash, catRes, prodRes, ordRes, userRes, promoRes, faqRes, logRes, storeRes] = await Promise.all([
+      adminApi.dashboard({ chart_from: chartFrom.value, chart_to: chartTo.value }),
       productApi.categories({ active_only: false }),
       adminApi.products({ page_size: 100 }),
       orderApi.adminOrders(),
+      adminApi.users(),
       productApi.promotions({ active_only: false }),
       chatApi.faqs(),
       chatApi.chatLogs(),
       chatApi.storeInfo().catch(() => ({ data: null })),
     ])
 
-    dashboard.value = dash.data || {}
+    applyDashboardPayload(dash.data || {})
     categories.value = (catRes.data || []).map((c) => ({
       ...c,
       is_active: c.is_active !== undefined ? c.is_active : true,
@@ -1308,6 +1601,10 @@ async function loadAllData() {
       is_active: p.is_active !== undefined ? p.is_active : true,
     }))
     orders.value = ordRes.data || []
+    users.value = (userRes.data || []).map((u) => ({
+      ...u,
+      is_active: u.is_active !== undefined ? u.is_active : true,
+    }))
     promotions.value = (promoRes.data || []).map((pr) => ({
       ...pr,
       is_active: pr.is_active !== undefined ? pr.is_active : true,
@@ -1322,6 +1619,81 @@ async function loadAllData() {
     console.error('Lỗi tải dữ liệu admin:', error)
   } finally {
     loading.value = false
+  }
+}
+
+async function loadUsers() {
+  const { data } = await adminApi.users()
+  users.value = (data || []).map((u) => ({
+    ...u,
+    is_active: u.is_active !== undefined ? u.is_active : true,
+  }))
+}
+
+function openCreateUserModal() {
+  editingUser.value = null
+  Object.assign(userForm, {
+    full_name: '',
+    email: '',
+    phone: '',
+    role: 'customer',
+    password: '',
+    is_active: true,
+  })
+  showUserModal.value = true
+}
+
+function openEditUserModal(user) {
+  editingUser.value = user
+  Object.assign(userForm, {
+    full_name: user.full_name || '',
+    email: user.email || '',
+    phone: user.phone || '',
+    role: user.role || 'customer',
+    password: '',
+    is_active: user.is_active !== false,
+  })
+  showUserModal.value = true
+}
+
+async function saveUser() {
+  try {
+    if (editingUser.value) {
+      const payload = {
+        full_name: userForm.full_name,
+        phone: userForm.phone || null,
+        role: userForm.role,
+        is_active: userForm.is_active,
+      }
+      if (userForm.password) payload.password = userForm.password
+      await adminApi.updateUser(editingUser.value.id, payload)
+      addLog('user', 'update', 'Cập nhật người dùng', `Đã cập nhật ${userForm.email}`)
+    } else {
+      await adminApi.createUser({
+        full_name: userForm.full_name,
+        email: userForm.email,
+        phone: userForm.phone || null,
+        role: userForm.role,
+        password: userForm.password,
+        is_active: userForm.is_active,
+      })
+      addLog('user', 'create', 'Thêm người dùng', `Đã tạo tài khoản ${userForm.email}`)
+    }
+    showUserModal.value = false
+    await loadUsers()
+  } catch (error) {
+    alert(error?.response?.data?.detail || 'Không thể lưu người dùng')
+  }
+}
+
+async function handleToggleUserActive(user, isActive) {
+  try {
+    await adminApi.updateUser(user.id, { is_active: isActive })
+    addLog('user', 'update', 'Đổi trạng thái người dùng', `${user.email} → ${isActive ? 'Hoạt động' : 'Tạm khóa'}`)
+    await loadUsers()
+  } catch (error) {
+    alert(error?.response?.data?.detail || 'Không thể đổi trạng thái người dùng')
+    await loadUsers()
   }
 }
 
@@ -2146,36 +2518,69 @@ async function handleReindex() {
 }
 
 onMounted(() => {
+  syncSidebarByViewport()
+  window.addEventListener('resize', syncSidebarByViewport)
   loadAllData()
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', syncSidebarByViewport)
+  showBackToTop.value = false
 })
 </script>
 
 <style scoped>
 .admin-layout {
-  display: grid;
-  grid-template-columns: 280px 1fr;
-  min-height: 100vh;
+  /* Mức cao tối thiểu: đủ nhìn hết các mục menu, không thu hẹp thêm */
+  --admin-min-h: 720px;
+  --sidebar-w: 280px;
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  height: max(100vh, var(--admin-min-h));
+  min-height: var(--admin-min-h);
   background: #f4efe7;
+  overflow: hidden;
 }
 
-/* SIDEBAR BÊN TRÁI */
+.sidebar-backdrop {
+  display: none;
+}
+
+/* SIDEBAR cố định — không thanh kéo, không co chữ */
 .admin-sidebar {
+  --sidebar-pad-y: 1.15rem;
+  --sidebar-gap: 0.4rem;
   background: #1c1915;
   color: #f7f2ea;
   display: flex;
   flex-direction: column;
-  padding: 1.5rem 1rem;
+  flex: 0 0 var(--sidebar-w);
+  width: var(--sidebar-w);
+  min-width: var(--sidebar-w);
+  max-width: var(--sidebar-w);
+  height: 100%;
+  min-height: var(--admin-min-h);
+  padding: var(--sidebar-pad-y) 1rem;
   border-right: 1px solid rgba(255, 255, 255, 0.08);
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  overflow-y: auto;
+  overflow: hidden;
+  z-index: 50;
+  transition: margin-left 0.25s ease, transform 0.25s ease;
+  box-sizing: border-box;
+}
+
+.admin-layout.sidebar-collapsed .admin-sidebar {
+  margin-left: calc(var(--sidebar-w) * -1);
 }
 
 .sidebar-header {
-  padding-bottom: 1.2rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-bottom: 1rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  margin-bottom: 1.2rem;
+  margin-bottom: 1rem;
+  flex-shrink: 0;
 }
 
 .sidebar-brand {
@@ -2183,11 +2588,13 @@ onMounted(() => {
   align-items: center;
   gap: 0.75rem;
   text-decoration: none;
+  min-width: 0;
 }
 
 .brand-badge-icon {
   width: 38px;
   height: 38px;
+  flex-shrink: 0;
   border-radius: 10px;
   background: var(--accent-gold);
   color: #171411;
@@ -2201,21 +2608,24 @@ onMounted(() => {
 .brand-info {
   display: flex;
   flex-direction: column;
+  white-space: nowrap;
 }
 
 .brand-title {
   font-family: var(--font-display);
-  font-size: 1.3rem;
+  font-size: 1.15rem;
   font-weight: 700;
   color: #ffffff;
   letter-spacing: 0.06em;
+  white-space: nowrap;
 }
 
 .brand-role {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   color: #c4b9ad;
+  white-space: nowrap;
 }
 
 .admin-user-card {
@@ -2223,15 +2633,17 @@ onMounted(() => {
   align-items: center;
   gap: 0.75rem;
   background: rgba(255, 255, 255, 0.06);
-  padding: 0.75rem 0.9rem;
+  padding: 0.7rem 0.85rem;
   border-radius: 12px;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.1rem;
   border: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
 }
 
 .user-avatar {
   width: 34px;
   height: 34px;
+  flex-shrink: 0;
   border-radius: 50%;
   background: var(--accent);
   color: #ffffff;
@@ -2245,54 +2657,54 @@ onMounted(() => {
 .user-details {
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  min-width: 0;
 }
 
 .user-details strong {
   font-size: 0.88rem;
   color: #ffffff;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .user-details small {
   font-size: 0.72rem;
   color: #a89f94;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 /* Sidebar Nav */
 .sidebar-nav {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
-  flex: 1;
+  gap: var(--sidebar-gap);
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .nav-item-btn {
   display: flex;
   align-items: center;
-  gap: 0.8rem;
+  gap: 0.75rem;
   width: 100%;
-  padding: 0.8rem 1rem;
+  min-height: 42px;
+  padding: 0.65rem 0.9rem;
   border-radius: 12px;
   border: none;
   background: transparent;
   color: #aea397;
-  font-size: 0.92rem;
+  font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
   text-align: left;
-  transition: all 0.2s ease;
+  transition: background 0.2s ease, color 0.2s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .nav-item-btn:hover {
   background: rgba(255, 255, 255, 0.08);
   color: #ffffff;
-  transform: translateX(3px);
 }
 
 .nav-item-btn.active {
@@ -2302,26 +2714,30 @@ onMounted(() => {
 }
 
 .nav-icon {
-  font-size: 1.15rem;
+  font-size: 1.1rem;
+  flex-shrink: 0;
 }
 
 .nav-label {
-  flex: 1;
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .sidebar-footer {
-  padding-top: 1.2rem;
+  padding-top: 1rem;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  margin-top: 1rem;
+  gap: 0.4rem;
+  margin-top: 0.85rem;
+  flex-shrink: 0;
 }
 
 .btn-sidebar-link {
   display: flex;
   align-items: center;
-  padding: 0.65rem 0.8rem;
+  min-height: 40px;
+  padding: 0.6rem 0.8rem;
   border-radius: 8px;
   background: transparent;
   border: none;
@@ -2330,6 +2746,7 @@ onMounted(() => {
   font-weight: 600;
   cursor: pointer;
   text-decoration: none;
+  white-space: nowrap;
   transition: all 0.2s ease;
 }
 
@@ -2346,15 +2763,95 @@ onMounted(() => {
   background: rgba(255, 82, 82, 0.15) !important;
 }
 
-/* MAIN CONTENT */
+/* Nút 3 gạch cạnh mép phải sidebar / góc trên trái khi ẩn */
+.btn-sidebar-edge {
+  position: fixed;
+  top: 0.85rem;
+  left: 0.65rem;
+  z-index: 70;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1c1915;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(28, 25, 21, 0.14);
+  transition: left 0.25s ease, background 0.2s ease, color 0.2s ease;
+}
+
+.admin-layout.sidebar-open .btn-sidebar-edge {
+  left: calc(var(--sidebar-w) - 16px);
+  background: #1c1915;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.28);
+}
+
+.hamburger-icon {
+  width: 14px;
+  height: 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.hamburger-icon i {
+  display: block;
+  width: 100%;
+  height: 1.5px;
+  border-radius: 2px;
+  background: currentColor;
+}
+
+/* MAIN CONTENT — co dãn theo phần còn lại của trang */
 .admin-main {
-  padding: 2.2rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  min-height: var(--admin-min-h);
+  padding: clamp(1.1rem, 2.2vw, 2.2rem);
+  padding-left: clamp(1.4rem, 3vw, 2.6rem);
   overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  box-sizing: border-box;
+}
+
+.admin-layout.sidebar-collapsed .admin-main {
+  padding-left: clamp(3.4rem, 5vw, 4rem);
+}
+
+.btn-back-to-top {
+  position: fixed;
+  right: 1.4rem;
+  bottom: 1.4rem;
+  z-index: 60;
+  width: 46px;
+  height: 46px;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent, #114b43);
+  color: #fff;
+  font-size: 1.25rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 8px 22px rgba(17, 75, 67, 0.35);
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.btn-back-to-top:hover {
+  transform: translateY(-3px);
 }
 
 .section-content {
   max-width: 1300px;
   margin: 0 auto;
+  width: 100%;
+  min-width: 0;
 }
 
 .page-top-bar {
@@ -2392,6 +2889,43 @@ onMounted(() => {
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 1.4rem;
   margin-bottom: 2rem;
+}
+
+.stats-overview-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.dashboard-charts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.2rem;
+  margin-bottom: 1.5rem;
+}
+
+.role-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.role-pill.admin {
+  background: #ede7f6;
+  color: #5e35b1;
+}
+
+.role-pill.customer {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+@media (max-width: 980px) {
+  .stats-overview-3,
+  .dashboard-charts-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .stat-box {
@@ -3117,12 +3651,42 @@ onMounted(() => {
 
 @media (max-width: 1024px) {
   .admin-layout {
-    grid-template-columns: 1fr;
+    --sidebar-w: 280px;
   }
+
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(17, 14, 11, 0.45);
+    z-index: 45;
+  }
+
   .admin-sidebar {
-    height: auto;
-    position: static;
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: max(100vh, var(--admin-min-h));
+    min-height: var(--admin-min-h);
+    margin-left: 0 !important;
+    transform: translateX(-105%);
+    box-shadow: 8px 0 28px rgba(0, 0, 0, 0.28);
   }
+
+  .admin-sidebar.open {
+    transform: translateX(0);
+  }
+
+  .admin-layout.sidebar-open .btn-sidebar-edge {
+    left: calc(var(--sidebar-w) - 16px);
+  }
+
+  .admin-main {
+    width: 100%;
+    max-width: 100%;
+    padding-left: clamp(3.4rem, 5vw, 4rem);
+  }
+
   .dashboard-recent-grid {
     grid-template-columns: 1fr;
   }
@@ -3133,7 +3697,14 @@ onMounted(() => {
     grid-template-columns: 1fr;
   }
   .admin-main {
-    padding: 1.2rem;
+    padding: 1rem;
+    padding-left: 3.4rem;
+  }
+  .page-title {
+    font-size: 1.55rem;
+  }
+  .section-content {
+    max-width: 100%;
   }
 }
 </style>

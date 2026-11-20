@@ -59,7 +59,9 @@ export const chatApi = {
 }
 
 export const adminApi = {
-  dashboard: () => api.get('/admin/dashboard'),
+  dashboard: (params) => api.get('/admin/dashboard', { params }),
   users: () => api.get('/admin/users'),
+  createUser: (payload) => api.post('/admin/users', payload),
+  updateUser: (id, payload) => api.patch(`/admin/users/${id}`, payload),
   products: (params) => api.get('/admin/products', { params }),
 }
