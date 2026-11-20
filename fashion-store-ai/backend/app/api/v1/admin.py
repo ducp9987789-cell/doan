@@ -2,37 +2,18 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, EmailStr, Field
-from pymongo import ReturnDocument
 
-from app.core.security import get_current_admin, hash_password
-from app.core.utils import serialize_doc, to_object_id
+from app.core.security import get_current_admin
+from app.core.utils import serialize_doc
 from app.db.mongodb import get_database
-from app.schemas.user import UserResponse
+from app.schemas.user import AdminUserCreate, AdminUserUpdate, UserResponse
 from app.services.order_service import OrderService
 from app.services.product_service import ProductService
+from app.services.user_service import UserService
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(get_current_admin)])
 
 PENDING_STATUSES = {"pending", "confirmed"}
-
-
-class AdminUserCreate(BaseModel):
-    email: EmailStr
-    password: str = Field(min_length=6)
-    full_name: str
-    phone: Optional[str] = None
-    role: str = "customer"
-    is_active: bool = True
-
-
-class AdminUserUpdate(BaseModel):
-    full_name: Optional[str] = None
-    phone: Optional[str] = None
-    address: Optional[str] = None
-    role: Optional[str] = None
-    is_active: Optional[bool] = None
-    password: Optional[str] = Field(default=None, min_length=6)
 
 
 def _parse_day(value: Optional[str], fallback: datetime) -> datetime:
@@ -132,63 +113,17 @@ async def dashboard(
 
 @router.get("/users", response_model=list[UserResponse])
 async def list_users() -> list[dict]:
-    db = get_database()
-    cursor = db.users.find({}).sort("created_at", -1)
-    return [serialize_doc(doc) for doc in await cursor.to_list(length=500)]
+    return await UserService.list_users()
 
 
 @router.post("/users", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def create_user(payload: AdminUserCreate) -> dict:
-    if payload.role not in {"customer", "admin"}:
-        raise HTTPException(status_code=400, detail="Invalid role")
-    db = get_database()
-    existing = await db.users.find_one({"email": payload.email.lower()})
-    if existing:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    doc = {
-        "email": payload.email.lower(),
-        "full_name": payload.full_name,
-        "hashed_password": hash_password(payload.password),
-        "role": payload.role,
-        "phone": payload.phone,
-        "address": None,
-        "is_active": payload.is_active,
-        "created_at": datetime.utcnow(),
-        "updated_at": datetime.utcnow(),
-    }
-    result = await db.users.insert_one(doc)
-    doc["_id"] = result.inserted_id
-    return serialize_doc(doc)
+    return await UserService.admin_create_user(payload)
 
 
 @router.patch("/users/{user_id}", response_model=UserResponse)
 async def update_user(user_id: str, payload: AdminUserUpdate, current_admin: dict = Depends(get_current_admin)) -> dict:
-    if payload.role is not None and payload.role not in {"customer", "admin"}:
-        raise HTTPException(status_code=400, detail="Invalid role")
-
-    updates = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if k != "password"}
-    if payload.password:
-        updates["hashed_password"] = hash_password(payload.password)
-    if not updates:
-        raise HTTPException(status_code=400, detail="No fields to update")
-
-    # Prevent admin from locking themselves out
-    if str(current_admin.get("id")) == str(user_id):
-        if updates.get("is_active") is False:
-            raise HTTPException(status_code=400, detail="Cannot deactivate your own account")
-        if updates.get("role") == "customer":
-            raise HTTPException(status_code=400, detail="Cannot remove admin role from your own account")
-
-    updates["updated_at"] = datetime.utcnow()
-    db = get_database()
-    result = await db.users.find_one_and_update(
-        {"_id": to_object_id(user_id)},
-        {"$set": updates},
-        return_document=ReturnDocument.AFTER,
-    )
-    if not result:
-        raise HTTPException(status_code=404, detail="User not found")
-    return serialize_doc(result)
+    return await UserService.admin_update_user(user_id, payload, current_admin_id=current_admin.get("id"))
 
 
 @router.get("/products")

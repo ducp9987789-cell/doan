@@ -72,3 +72,12 @@ export const adminApi = {
   updateUser: (id, payload) => api.patch(`/admin/users/${id}`, payload),
   products: (params) => api.get('/admin/products', { params }),
 }
+
+export const userApi = {
+  getProfile: () => api.get('/auth/me'),
+  updateProfile: (payload) => api.patch('/auth/me', payload),
+  changePassword: (payload) => api.post('/auth/change-password', payload),
+  listUsers: () => api.get('/admin/users'),
+  createUser: (payload) => api.post('/admin/users', payload),
+  updateUser: (id, payload) => api.patch(`/admin/users/${id}`, payload),
+}

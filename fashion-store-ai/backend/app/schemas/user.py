@@ -68,3 +68,21 @@ class ResetPasswordRequest(BaseModel):
     email_or_phone: str
     otp: str
     new_password: str = Field(min_length=6)
+
+
+class AdminUserCreate(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=6)
+    full_name: str
+    phone: Optional[str] = None
+    role: str = "customer"
+    is_active: bool = True
+
+
+class AdminUserUpdate(BaseModel):
+    full_name: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    role: Optional[str] = None
+    is_active: Optional[bool] = None
+    password: Optional[str] = Field(default=None, min_length=6)
