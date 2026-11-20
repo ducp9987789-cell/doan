@@ -330,7 +330,7 @@ async def run_seed(reset_db: bool = False):
         res = await db.users.insert_one(
             {
                 "email": tenant_email,
-                "full_name": "Nguyễn Văn Tenant (Khách Hàng VIP)",
+                "full_name": "Nguyễn Văn Tenant",
                 "hashed_password": hash_password("Tenant@123"),
                 "role": "customer",
                 "phone": "0912345678",

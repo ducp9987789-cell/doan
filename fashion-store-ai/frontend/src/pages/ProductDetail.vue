@@ -87,21 +87,48 @@
             </ul>
           </div>
 
-          <!-- Số lượng & Nút Thêm Giỏ Hàng -->
+          <!-- Thông tin tồn kho & Số lượng & Nút Thêm Giỏ Hàng -->
+          <div class="stock-info-row">
+            <span v-if="isOutOfStock" class="stock-status out-of-stock">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
+              Tình trạng: <strong>Hết hàng</strong>
+            </span>
+            <span v-else class="stock-status in-stock">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              Tình trạng: Còn <strong>{{ availableStock }}</strong> sản phẩm có sẵn trong kho
+            </span>
+          </div>
+
           <div class="action-row">
-            <div class="quantity-picker">
-              <button type="button" @click="quantity = Math.max(1, quantity - 1)">-</button>
-              <input v-model.number="quantity" type="number" min="1" max="99" />
-              <button type="button" @click="quantity = quantity + 1">+</button>
+            <div class="quantity-picker" :class="{ disabled: isOutOfStock }">
+              <button type="button" :disabled="isOutOfStock || quantity <= 1" @click="quantity = Math.max(1, quantity - 1)">-</button>
+              <input
+                v-model.number="quantity"
+                type="number"
+                :min="isOutOfStock ? 0 : 1"
+                :max="availableStock"
+                :disabled="isOutOfStock"
+                @change="clampQuantity"
+              />
+              <button type="button" :disabled="isOutOfStock || quantity >= availableStock" @click="quantity = Math.min(availableStock, quantity + 1)">+</button>
             </div>
 
-            <button class="btn btn-add-cart" :disabled="adding" @click="addToCart">
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <button
+              class="btn btn-add-cart"
+              :class="{ 'btn-out-of-stock': isOutOfStock }"
+              :disabled="adding || isOutOfStock"
+              @click="addToCart"
+            >
+              <svg v-if="!isOutOfStock" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="9" cy="21" r="1"></circle>
                 <circle cx="20" cy="21" r="1"></circle>
                 <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
               </svg>
-              <span>{{ adding ? 'Đang thêm vào giỏ...' : 'Thêm vào giỏ hàng' }}</span>
+              <svg v-else viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+              </svg>
+              <span>{{ isOutOfStock ? 'Hết hàng' : adding ? 'Đang thêm vào giỏ...' : 'Thêm vào giỏ hàng' }}</span>
             </button>
           </div>
 
@@ -169,6 +196,21 @@ const showSizeGuide = ref(false)
 
 const placeholder = 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800'
 
+const availableStock = computed(() => product.value?.stock ?? 0)
+const isOutOfStock = computed(() => availableStock.value <= 0)
+
+function clampQuantity() {
+  if (isOutOfStock.value) {
+    quantity.value = 0
+    return
+  }
+  if (!quantity.value || quantity.value < 1) {
+    quantity.value = 1
+  } else if (quantity.value > availableStock.value) {
+    quantity.value = availableStock.value
+  }
+}
+
 const discountPercent = computed(() => {
   if (product.value?.sale_price && product.value?.price && product.value.sale_price < product.value.price) {
     return Math.round(((product.value.price - product.value.sale_price) / product.value.price) * 100)
@@ -181,6 +223,17 @@ function formatPrice(value) {
 }
 
 async function addToCart() {
+  if (isOutOfStock.value) {
+    isSuccess.value = false
+    message.value = 'Sản phẩm này hiện đã hết hàng.'
+    return
+  }
+  if (quantity.value > availableStock.value) {
+    isSuccess.value = false
+    message.value = `Số lượng yêu cầu vượt quá số lượng hàng có sẵn (${availableStock.value} sản phẩm).`
+    return
+  }
+
   if (!auth.isAuthenticated) {
     router.push({ name: 'login', query: { redirect: route.fullPath } })
     return
@@ -213,6 +266,9 @@ onMounted(async () => {
     product.value = data
     selectedColor.value = data.colors?.[0] || ''
     selectedSize.value = data.sizes?.[0] || ''
+    if ((data.stock ?? 0) <= 0) {
+      quantity.value = 0
+    }
   } catch (e) {
     console.error(e)
   }
@@ -403,6 +459,53 @@ onMounted(async () => {
   display: flex;
   gap: 1rem;
   margin-bottom: 1.4rem;
+}
+
+.stock-info-row {
+  margin-bottom: 0.9rem;
+  display: flex;
+  align-items: center;
+}
+
+.stock-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.88rem;
+  font-weight: 500;
+  padding: 0.4rem 0.85rem;
+  border-radius: 8px;
+}
+
+.stock-status.in-stock {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.stock-status.out-of-stock {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+  font-weight: 600;
+}
+
+.quantity-picker.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.quantity-picker button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-add-cart.btn-out-of-stock {
+  background: #f1f5f9;
+  color: #94a3b8;
+  border-color: #cbd5e1;
+  cursor: not-allowed;
+  opacity: 0.9;
 }
 
 .quantity-picker {

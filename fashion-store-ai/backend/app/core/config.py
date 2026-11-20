@@ -39,6 +39,15 @@ class Settings(BaseSettings):
     admin_password: str = "Admin@123"
     seed_on_startup: bool = True
 
+    # SMTP Configuration for sending real OTP emails
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from_email: str = ""
+    smtp_from_name: str = "Fashion Store AI"
+    smtp_tls: bool = True
+
     @property
     def cors_origin_list(self) -> List[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]

@@ -2,6 +2,8 @@ import api from './api'
 
 export const authApi = {
   register: (payload) => api.post('/auth/register', payload),
+  sendRegisterOtp: (payload) => api.post('/auth/register/send-otp', payload),
+  verifyRegisterOtp: (payload) => api.post('/auth/register/verify-otp', payload),
   login: (email, password) => {
     const form = new URLSearchParams()
     form.append('username', email)
@@ -11,6 +13,11 @@ export const authApi = {
     })
   },
   me: () => api.get('/auth/me'),
+  updateProfile: (payload) => api.patch('/auth/me', payload),
+  changePassword: (payload) => api.post('/auth/change-password', payload),
+  sendForgotOtp: (payload) => api.post('/auth/forgot-password/send-otp', payload),
+  verifyForgotOtp: (payload) => api.post('/auth/forgot-password/verify-otp', payload),
+  resetPassword: (payload) => api.post('/auth/forgot-password/reset', payload),
 }
 
 export const productApi = {

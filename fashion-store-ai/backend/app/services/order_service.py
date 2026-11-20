@@ -19,6 +19,16 @@ class OrderService:
             result = await db.carts.insert_one(cart)
             cart["_id"] = result.inserted_id
         items = cart.get("items", [])
+        
+        # Đồng bộ thông tin stock mới nhất của từng sản phẩm
+        for item in items:
+            try:
+                p = await db.products.find_one({"_id": to_object_id(item["product_id"])})
+                if p:
+                    item["stock"] = p.get("stock", 0)
+            except Exception:
+                pass
+
         subtotal = sum(item["price"] * item["quantity"] for item in items)
         return {
             "user_id": user_id,
@@ -32,7 +42,12 @@ class OrderService:
         db = get_database()
         product = await db.products.find_one({"_id": to_object_id(payload.product_id), "is_active": True})
         if not product:
-            raise HTTPException(status_code=404, detail="Product not found")
+            raise HTTPException(status_code=404, detail="Sản phẩm không tồn tại")
+        
+        available_stock = product.get("stock", 0)
+        if available_stock <= 0:
+            raise HTTPException(status_code=400, detail="Sản phẩm này hiện đã hết hàng.")
+
         price = product.get("sale_price") or product["price"]
         cart = await db.carts.find_one({"user_id": user_id})
         items = cart["items"] if cart else []
@@ -43,10 +58,22 @@ class OrderService:
                 and item.get("color") == payload.color
                 and item.get("size") == payload.size
             ):
-                item["quantity"] += payload.quantity
+                new_qty = item["quantity"] + payload.quantity
+                if new_qty > available_stock:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Số lượng yêu cầu ({new_qty}) vượt quá số lượng còn lại trong kho ({available_stock} sản phẩm)."
+                    )
+                item["quantity"] = new_qty
+                item["stock"] = available_stock
                 matched = True
                 break
         if not matched:
+            if payload.quantity > available_stock:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Số lượng yêu cầu ({payload.quantity}) vượt quá số lượng còn lại trong kho ({available_stock} sản phẩm)."
+                )
             items.append(
                 {
                     "product_id": payload.product_id,
@@ -56,6 +83,7 @@ class OrderService:
                     "color": payload.color,
                     "size": payload.size,
                     "image": (product.get("images") or [None])[0],
+                    "stock": available_stock,
                 }
             )
         await db.carts.update_one(
@@ -77,6 +105,21 @@ class OrderService:
         cart = await db.carts.find_one({"user_id": user_id})
         if not cart:
             raise HTTPException(status_code=404, detail="Cart not found")
+
+        available_stock = 999999
+        if quantity > 0:
+            product = await db.products.find_one({"_id": to_object_id(product_id), "is_active": True})
+            if not product:
+                raise HTTPException(status_code=404, detail="Sản phẩm không tồn tại")
+            available_stock = product.get("stock", 0)
+            if available_stock <= 0:
+                raise HTTPException(status_code=400, detail="Sản phẩm này hiện đã hết hàng.")
+            if quantity > available_stock:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Số lượng yêu cầu ({quantity}) vượt quá số lượng còn lại trong kho ({available_stock} sản phẩm)."
+                )
+
         items = []
         for item in cart.get("items", []):
             if (
@@ -86,6 +129,7 @@ class OrderService:
             ):
                 if quantity > 0:
                     item["quantity"] = quantity
+                    item["stock"] = available_stock
                     items.append(item)
             else:
                 items.append(item)
@@ -124,12 +168,35 @@ class OrderService:
     async def create_order(user_id: str, payload: OrderCreate) -> dict[str, Any]:
         cart = await OrderService.get_cart(user_id)
         if not cart["items"]:
-            raise HTTPException(status_code=400, detail="Cart is empty")
+            raise HTTPException(status_code=400, detail="Giỏ hàng đang trống")
+        
+        db = get_database()
+
+        # Kiểm tra tồn kho trước khi đặt hàng
+        for item in cart["items"]:
+            prod = await db.products.find_one({"_id": to_object_id(item["product_id"])})
+            if not prod or not prod.get("is_active", True):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Sản phẩm '{item.get('name')}' hiện không còn kinh doanh."
+                )
+            avail_stock = prod.get("stock", 0)
+            if avail_stock <= 0:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Sản phẩm '{item.get('name')}' hiện đã hết hàng."
+                )
+            if item["quantity"] > avail_stock:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Sản phẩm '{item.get('name')}' chỉ còn {avail_stock} sản phẩm trong kho (bạn đặt {item['quantity']})."
+                )
+
         subtotal = cart["subtotal"]
         discount, promo_code = await OrderService._resolve_promotion(payload.promotion_code, subtotal)
         shipping_fee = 30000 if subtotal - discount < 500000 else 0
         total = subtotal - discount + shipping_fee
-        db = get_database()
+
         doc = {
             "user_id": user_id,
             "items": cart["items"],
@@ -146,6 +213,17 @@ class OrderService:
         }
         result = await db.orders.insert_one(doc)
         doc["_id"] = result.inserted_id
+
+        # Trừ tồn kho sau khi đặt hàng thành công
+        for item in cart["items"]:
+            try:
+                await db.products.update_one(
+                    {"_id": to_object_id(item["product_id"])},
+                    {"$inc": {"stock": -item["quantity"]}}
+                )
+            except Exception:
+                pass
+
         await OrderService.clear_cart(user_id)
         return serialize_doc(doc)
 

@@ -17,18 +17,19 @@
       </RouterLink>
     </div>
 
-    <!-- Khối Form Đăng nhập / Đăng ký -->
+    <!-- Khối Form Đăng nhập / Đăng ký / Quên mật khẩu -->
     <div class="auth-card panel fade-up">
       <div class="auth-header">
         <h1 class="auth-title">
-          {{ mode === 'login' ? 'Đăng nhập' : 'Đăng ký tài khoản' }}
+          {{ mode === 'login' ? 'Đăng nhập' : mode === 'register' ? 'Đăng ký tài khoản' : 'Khôi phục mật khẩu' }}
         </h1>
         <p class="auth-subtitle">
-          {{ mode === 'login' ? 'Chào mừng bạn quay trở lại với Fashion Store' : 'Tạo tài khoản mới để nhận ngập tràn ưu đãi mua sắm' }}
+          {{ mode === 'login' ? 'Chào mừng bạn quay trở lại với Fashion Store' : mode === 'register' ? 'Tạo tài khoản mới để nhận ngập tràn ưu đãi mua sắm' : 'Nhập email hoặc số điện thoại đã đăng ký để nhận mã OTP' }}
         </p>
       </div>
 
-      <form class="auth-form" @submit.prevent="submit">
+      <!-- FORM ĐĂNG NHẬP HOẶC ĐĂNG KÝ -->
+      <form v-if="mode !== 'forgot'" class="auth-form" @submit.prevent="submit">
         <!-- Họ tên (Đăng ký) -->
         <div v-if="mode === 'register'" class="field">
           <label>Họ và tên *</label>
@@ -54,8 +55,8 @@
           />
         </div>
 
-        <!-- Email -->
-        <div class="field">
+        <!-- Email (Đăng nhập) -->
+        <div v-if="mode === 'login'" class="field">
           <label>Địa chỉ Email *</label>
           <input
             v-model="form.email"
@@ -64,6 +65,62 @@
             required
             autocomplete="email"
           />
+        </div>
+
+        <!-- Email có nút gửi OTP (Đăng ký) -->
+        <div v-if="mode === 'register'" class="field">
+          <label>Địa chỉ Email nhận mã OTP *</label>
+          <div class="input-with-button">
+            <input
+              v-model="form.email"
+              type="email"
+              placeholder="name@gmail.com"
+              required
+              :disabled="registerOtpCountdown > 0"
+              autocomplete="email"
+            />
+            <button
+              type="button"
+              class="btn-inline-action"
+              :disabled="registerLoadingOtp || registerOtpCountdown > 0 || !form.email.trim()"
+              @click="handleSendRegisterOtp"
+            >
+              {{ registerOtpCountdown > 0 ? `${registerOtpCountdown}s` : registerLoadingOtp ? 'Đang gửi...' : registerOtpSent ? 'Gửi lại OTP' : 'Gửi mã OTP' }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Thông báo OTP đăng ký đã gửi -->
+        <div v-if="mode === 'register' && registerOtpMessage" class="alert-info-box">
+          {{ registerOtpMessage }}
+        </div>
+
+        <!-- Ô nhập mã OTP khi đăng ký -->
+        <div v-if="mode === 'register'" class="field">
+          <label>Mã xác thực OTP gửi về Gmail *</label>
+          <div class="input-with-button">
+            <input
+              v-model="form.otp"
+              type="text"
+              placeholder="Nhập mã 6 chữ số..."
+              maxlength="6"
+              required
+              :disabled="!registerOtpSent"
+            />
+            <button
+              type="button"
+              class="btn-inline-action btn-verify-action"
+              :class="{ 'btn-verified': registerOtpVerified }"
+              :disabled="registerOtpVerified || registerLoadingVerify || !form.otp?.trim()"
+              @click="handleVerifyRegisterOtp"
+            >
+              {{ registerOtpVerified ? '✓ Đã khớp' : registerLoadingVerify ? 'Đang kiểm tra...' : 'Kiểm tra OTP' }}
+            </button>
+          </div>
+          <small v-if="registerOtpVerified" class="text-success-hint">✓ Mã OTP hợp lệ. Hãy bấm "Xác nhận & Đăng ký" bên dưới.</small>
+          <small v-else-if="registerOtpSent && registerOtpCountdown > 0" class="text-muted-hint">⏱️ Mã có hiệu lực trong 1 phút (còn {{ registerOtpCountdown }}s). Vui lòng kiểm tra hộp thư Gmail.</small>
+          <small v-else-if="registerOtpSent && registerOtpCountdown === 0" class="text-danger-hint">⚠️ Mã OTP đã hết hạn 1 phút. Hãy bấm "Gửi lại OTP" để nhận mã mới.</small>
+          <small v-else class="text-muted-hint">Nhập Gmail rồi bấm "Gửi mã OTP" để nhận mã xác thực qua email.</small>
         </div>
 
         <!-- Mật khẩu -->
@@ -98,15 +155,121 @@
         </div>
 
         <!-- Nút submit -->
-        <button class="btn btn-block btn-submit" :disabled="auth.loading">
-          <span>{{ auth.loading ? 'Đang xử lý...' : mode === 'login' ? 'Đăng nhập' : 'Đăng ký ngay' }}</span>
+        <button class="btn btn-block btn-submit" :disabled="auth.loading || (mode === 'register' && (!registerOtpSent || !form.otp))">
+          <span>{{ auth.loading ? 'Đang xử lý...' : mode === 'login' ? 'Đăng nhập' : 'Xác nhận & Đăng ký ngay' }}</span>
         </button>
       </form>
 
-      <!-- Chuyển đổi giữa Đăng nhập / Đăng ký -->
-      <div class="auth-switch-box">
+      <!-- FORM QUÊN MẬT KHẨU (OTP + RESET MẬT KHẨU) -->
+      <form v-else class="auth-form" @submit.prevent="submitResetPassword">
+        <!-- 1. Email hoặc Số điện thoại -->
+        <div class="field">
+          <label>Email hoặc Số điện thoại đăng ký *</label>
+          <div class="input-with-button">
+            <input
+              v-model="forgotForm.email_or_phone"
+              type="text"
+              placeholder="Nhập email hoặc số điện thoại..."
+              required
+              :disabled="isOtpVerified"
+            />
+            <button
+              type="button"
+              class="btn-inline-action"
+              :disabled="loadingOtp || otpCountdown > 0 || !forgotForm.email_or_phone.trim()"
+              @click="handleSendOtp"
+            >
+              {{ otpCountdown > 0 ? `${otpCountdown}s` : loadingOtp ? 'Đang gửi...' : 'Gửi mã OTP' }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Thông báo OTP đã gửi -->
+        <div v-if="otpSentMessage" class="alert-info-box">
+          {{ otpSentMessage }}
+        </div>
+
+        <!-- 2. Ô nhập mã OTP -->
+        <div class="field">
+          <label>Mã xác thực OTP *</label>
+          <div class="input-with-button">
+            <input
+              v-model="forgotForm.otp"
+              type="text"
+              placeholder="Nhập mã 6 chữ số..."
+              maxlength="6"
+              required
+              :disabled="isOtpVerified || !otpSent"
+            />
+            <button
+              type="button"
+              class="btn-inline-action btn-verify-action"
+              :class="{ 'btn-verified': isOtpVerified }"
+              :disabled="isOtpVerified || loadingVerify || !forgotForm.otp.trim()"
+              @click="handleVerifyOtp"
+            >
+              {{ isOtpVerified ? '✓ Đã khớp' : loadingVerify ? 'Đang kiểm tra...' : 'Xác thực OTP' }}
+            </button>
+          </div>
+          <small v-if="isOtpVerified" class="text-success-hint">✓ Mã OTP hợp lệ. Bây giờ bạn có thể nhập mật khẩu mới phía dưới.</small>
+          <small v-else-if="!otpSent" class="text-muted-hint">Bấm "Gửi mã OTP" để nhận mã xác nhận.</small>
+        </div>
+
+        <!-- 3. Mật khẩu mới (Khóa cho đến khi xác thực OTP thành công) -->
+        <div class="field" :class="{ 'field-locked': !isOtpVerified }">
+          <label>Mật khẩu mới *</label>
+          <input
+            v-model="forgotForm.new_password"
+            type="password"
+            placeholder="Tối thiểu 6 ký tự..."
+            minlength="6"
+            required
+            :disabled="!isOtpVerified"
+            autocomplete="new-password"
+          />
+        </div>
+
+        <!-- 4. Xác nhận lại mật khẩu mới -->
+        <div class="field" :class="{ 'field-locked': !isOtpVerified }">
+          <label>Xác nhận lại mật khẩu mới *</label>
+          <input
+            v-model="forgotForm.confirm_password"
+            type="password"
+            placeholder="Nhập lại mật khẩu mới..."
+            minlength="6"
+            required
+            :disabled="!isOtpVerified"
+            autocomplete="new-password"
+          />
+        </div>
+
+        <!-- Thông báo lỗi / thành công khi reset -->
+        <div v-if="forgotSuccess" class="alert-success-box">
+          ✓ {{ forgotSuccess }}
+        </div>
+        <div v-if="forgotError" class="error-alert">
+          {{ forgotError }}
+        </div>
+
+        <!-- Nút Đặt lại mật khẩu -->
+        <button class="btn btn-block btn-submit" :disabled="!isOtpVerified || loadingReset">
+          <span>{{ loadingReset ? 'Đang đặt lại mật khẩu...' : 'Đặt lại mật khẩu mới' }}</span>
+        </button>
+      </form>
+
+      <!-- Dòng chuyển đổi Đăng nhập / Đăng ký / Quên mật khẩu -->
+      <div v-if="mode !== 'forgot'" class="auth-switch-box">
         <button class="btn-switch" @click="toggleMode" type="button">
-          {{ mode === 'login' ? 'Chưa có tài khoản? Đăng ký ngay' : 'Đã có tài khoản? Đăng nhập' }}
+          {{ mode === 'login' ? 'Đăng ký ngay' : 'Đăng nhập' }}
+        </button>
+        <button v-if="mode === 'login'" class="btn-switch btn-forgot-link" @click="openForgotMode" type="button">
+          Quên mật khẩu?
+        </button>
+      </div>
+
+      <div v-else class="auth-switch-box">
+        <button class="btn-switch btn-back-login" @click="backToLogin" type="button">
+          ← Quay lại Đăng nhập
         </button>
       </div>
     </div>
@@ -128,6 +291,7 @@
 import { onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { authApi } from '../services'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -141,12 +305,209 @@ const form = reactive({
   email: '',
   password: '',
   confirm_password: '',
+  otp: '',
 })
+
+// State cho đăng ký OTP
+const registerOtpSent = ref(false)
+const registerOtpMessage = ref('')
+const registerOtpCountdown = ref(0)
+let registerCountdownTimer = null
+const registerOtpVerified = ref(false)
+const registerLoadingOtp = ref(false)
+const registerLoadingVerify = ref(false)
+
+function startRegisterCountdown(seconds = 60) {
+  registerOtpCountdown.value = seconds
+  if (registerCountdownTimer) clearInterval(registerCountdownTimer)
+  registerCountdownTimer = setInterval(() => {
+    if (registerOtpCountdown.value > 0) {
+      registerOtpCountdown.value--
+    } else {
+      clearInterval(registerCountdownTimer)
+      registerCountdownTimer = null
+    }
+  }, 1000)
+}
+
+async function handleSendRegisterOtp() {
+  errorMessage.value = ''
+  registerOtpMessage.value = ''
+  if (!form.email || !form.email.includes('@')) {
+    errorMessage.value = 'Vui lòng nhập địa chỉ email hợp lệ trước khi gửi mã OTP.'
+    return
+  }
+  registerLoadingOtp.value = true
+  try {
+    const res = await authApi.sendRegisterOtp({ email: form.email.trim() })
+    registerOtpSent.value = true
+    startRegisterCountdown(60)
+    registerOtpMessage.value = res.data?.message || 'Mã OTP đã được gửi đến email của bạn!'
+  } catch (err) {
+    errorMessage.value = err.response?.data?.detail || 'Lỗi khi gửi mã OTP. Vui lòng kiểm tra lại email.'
+  } finally {
+    registerLoadingOtp.value = false
+  }
+}
+
+async function handleVerifyRegisterOtp() {
+  errorMessage.value = ''
+  if (!form.otp || !form.otp.trim()) {
+    errorMessage.value = 'Vui lòng nhập mã OTP 6 chữ số gửi về email.'
+    return
+  }
+  registerLoadingVerify.value = true
+  try {
+    const res = await authApi.verifyRegisterOtp({ email: form.email.trim(), otp: form.otp.trim() })
+    registerOtpVerified.value = true
+    registerOtpMessage.value = '✓ ' + (res.data?.message || 'Xác thực email thành công!')
+  } catch (err) {
+    errorMessage.value = err.response?.data?.detail || 'Mã OTP không chính xác hoặc đã hết hạn.'
+  } finally {
+    registerLoadingVerify.value = false
+  }
+}
+
+// State cho chức năng Quên mật khẩu & OTP
+const forgotForm = reactive({
+  email_or_phone: '',
+  otp: '',
+  new_password: '',
+  confirm_password: '',
+})
+const otpSent = ref(false)
+const otpSentMessage = ref('')
+const otpCountdown = ref(0)
+let countdownTimer = null
+const isOtpVerified = ref(false)
+const loadingOtp = ref(false)
+const loadingVerify = ref(false)
+const loadingReset = ref(false)
+const forgotSuccess = ref('')
+const forgotError = ref('')
+
+function openForgotMode() {
+  mode.value = 'forgot'
+  errorMessage.value = ''
+  auth.error = ''
+  forgotError.value = ''
+  forgotSuccess.value = ''
+  isOtpVerified.value = false
+  otpSent.value = false
+  otpSentMessage.value = ''
+}
+
+function backToLogin() {
+  mode.value = 'login'
+  errorMessage.value = ''
+  auth.error = ''
+  forgotError.value = ''
+  forgotSuccess.value = ''
+}
+
+function startCountdown(seconds = 60) {
+  otpCountdown.value = seconds
+  if (countdownTimer) clearInterval(countdownTimer)
+  countdownTimer = setInterval(() => {
+    if (otpCountdown.value > 0) {
+      otpCountdown.value--
+    } else {
+      clearInterval(countdownTimer)
+      countdownTimer = null
+    }
+  }, 1000)
+}
+
+async function handleSendOtp() {
+  forgotError.value = ''
+  forgotSuccess.value = ''
+  otpSentMessage.value = ''
+  if (!forgotForm.email_or_phone.trim()) {
+    forgotError.value = 'Vui lòng nhập email hoặc số điện thoại.'
+    return
+  }
+  loadingOtp.value = true
+  try {
+    const res = await authApi.sendForgotOtp({ email_or_phone: forgotForm.email_or_phone.trim() })
+    otpSent.value = true
+    startCountdown(60)
+    otpSentMessage.value = res.data?.message || 'Mã xác thực OTP đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư!'
+  } catch (err) {
+    forgotError.value = err.response?.data?.detail || 'Không tìm thấy tài khoản với thông tin này hoặc có lỗi xảy ra.'
+  } finally {
+    loadingOtp.value = false
+  }
+}
+
+async function handleVerifyOtp() {
+  forgotError.value = ''
+  forgotSuccess.value = ''
+  if (!forgotForm.otp.trim()) {
+    forgotError.value = 'Vui lòng nhập mã OTP 6 chữ số.'
+    return
+  }
+  loadingVerify.value = true
+  try {
+    const res = await authApi.verifyForgotOtp({ email_or_phone: forgotForm.email_or_phone.trim(), otp: forgotForm.otp.trim() })
+    isOtpVerified.value = true
+    forgotSuccess.value = res.data?.message || 'Xác thực mã OTP thành công!'
+  } catch (err) {
+    forgotError.value = err.response?.data?.detail || 'Mã OTP không chính xác hoặc đã hết hạn.'
+  } finally {
+    loadingVerify.value = false
+  }
+}
+
+async function submitResetPassword() {
+  forgotError.value = ''
+  forgotSuccess.value = ''
+  if (!isOtpVerified.value) {
+    forgotError.value = 'Vui lòng xác thực mã OTP trước khi đặt mật khẩu mới.'
+    return
+  }
+  if (forgotForm.new_password !== forgotForm.confirm_password) {
+    forgotError.value = 'Mật khẩu xác nhận không khớp.'
+    return
+  }
+  if (forgotForm.new_password.length < 6) {
+    forgotError.value = 'Mật khẩu mới phải có ít nhất 6 ký tự.'
+    return
+  }
+  loadingReset.value = true
+  try {
+    const res = await authApi.resetPassword({
+      email_or_phone: forgotForm.email_or_phone.trim(),
+      otp: forgotForm.otp.trim(),
+      new_password: forgotForm.new_password,
+      confirm_password: forgotForm.confirm_password,
+    })
+    forgotSuccess.value = (res.data?.message || 'Đặt lại mật khẩu thành công!') + ' Đang chuyển về đăng nhập...'
+    setTimeout(() => {
+      mode.value = 'login'
+      form.email = forgotForm.email_or_phone.includes('@') ? forgotForm.email_or_phone : ''
+      forgotForm.otp = ''
+      forgotForm.new_password = ''
+      forgotForm.confirm_password = ''
+      isOtpVerified.value = false
+      otpSent.value = false
+      otpSentMessage.value = ''
+      forgotSuccess.value = ''
+    }, 2000)
+  } catch (err) {
+    forgotError.value = err.response?.data?.detail || 'Đặt lại mật khẩu thất bại. Vui lòng thử lại.'
+  } finally {
+    loadingReset.value = false
+  }
+}
 
 function toggleMode() {
   mode.value = mode.value === 'login' ? 'register' : 'login'
   errorMessage.value = ''
   auth.error = ''
+  registerOtpSent.value = false
+  registerOtpVerified.value = false
+  registerOtpMessage.value = ''
+  form.otp = ''
 }
 
 async function submit() {
@@ -154,6 +515,10 @@ async function submit() {
   auth.error = ''
 
   if (mode.value === 'register') {
+    if (!form.otp || !form.otp.trim()) {
+      errorMessage.value = 'Vui lòng bấm "Gửi mã OTP" và nhập mã OTP 6 chữ số đã được gửi về Gmail của bạn.'
+      return
+    }
     if (form.password !== form.confirm_password) {
       errorMessage.value = 'Mật khẩu xác nhận không khớp. Vui lòng nhập lại.'
       return
@@ -169,6 +534,7 @@ async function submit() {
         phone: form.phone,
         email: form.email,
         password: form.password,
+        otp: form.otp,
       })
     }
     if (auth.isAdmin) {
@@ -317,7 +683,11 @@ onMounted(() => {
 
 .auth-switch-box {
   margin-top: 1.4rem;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.8rem;
   border-top: 1px solid var(--line);
   padding-top: 1.1rem;
 }
@@ -327,14 +697,135 @@ onMounted(() => {
   background: transparent;
   color: var(--accent);
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   cursor: pointer;
   transition: color 0.2s ease;
+  padding: 0;
 }
 
 .btn-switch:hover {
   text-decoration: underline;
   color: var(--accent-hover);
+}
+
+.btn-forgot-link {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.btn-forgot-link:hover {
+  color: var(--accent);
+}
+
+.btn-back-login {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+/* Input group with inline action button */
+.input-with-button {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.input-with-button input {
+  flex: 1;
+}
+
+.btn-inline-action {
+  background: var(--accent);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius-sm, 8px);
+  padding: 0 1rem;
+  font-size: 0.84rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-inline-action:hover:not(:disabled) {
+  background: var(--accent-hover, #0d3b34);
+}
+
+.btn-inline-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-verify-action {
+  background: var(--surface-variant, #2a2825);
+}
+
+.btn-verify-action.btn-verified {
+  background: #10b981 !important;
+  color: #ffffff !important;
+  opacity: 1 !important;
+  cursor: default;
+}
+
+.field-locked {
+  opacity: 0.75;
+}
+
+.field-locked input {
+  background: #f8fafc;
+  cursor: not-allowed;
+}
+
+.lock-indicator {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #f59e0b;
+  margin-left: 0.5rem;
+}
+
+.text-success-hint {
+  display: block;
+  font-size: 0.78rem;
+  color: #10b981;
+  font-weight: 600;
+  margin-top: 0.35rem;
+}
+
+.text-muted-hint {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-top: 0.35rem;
+}
+
+.text-danger-hint {
+  display: block;
+  font-size: 0.78rem;
+  color: #dc2626;
+  font-weight: 600;
+  margin-top: 0.35rem;
+}
+
+.alert-info-box {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 1.1rem;
+  line-height: 1.4;
+}
+
+.alert-success-box {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  margin-bottom: 1.1rem;
 }
 
 /* Dưới form: Về trang chủ */

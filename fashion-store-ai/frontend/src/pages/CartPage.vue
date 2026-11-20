@@ -36,6 +36,9 @@
               <div class="item-specs">
                 <span v-if="item.color" class="spec-tag">Màu: {{ item.color }}</span>
                 <span v-if="item.size" class="spec-tag">Size: {{ item.size }}</span>
+                <span v-if="item.stock !== undefined && item.stock <= 0" class="stock-tag out-of-stock">Hết hàng</span>
+                <span v-else-if="item.stock !== undefined && item.quantity > item.stock" class="stock-tag over-stock">Chỉ còn {{ item.stock }} món</span>
+                <span v-else-if="item.stock !== undefined && item.stock <= 5" class="stock-tag low-stock">Còn {{ item.stock }} sản phẩm</span>
               </div>
               <p class="item-unit-price">{{ formatPrice(item.price) }}</p>
             </div>
@@ -44,7 +47,14 @@
               <div class="qty-picker">
                 <button type="button" @click="changeQty(item, item.quantity - 1)">-</button>
                 <span>{{ item.quantity }}</span>
-                <button type="button" @click="changeQty(item, item.quantity + 1)">+</button>
+                <button
+                  type="button"
+                  :disabled="item.stock !== undefined && item.quantity >= item.stock"
+                  :title="item.stock !== undefined && item.quantity >= item.stock ? 'Đã đạt giới hạn số lượng còn lại trong kho' : 'Tăng số lượng'"
+                  @click="changeQty(item, item.quantity + 1)"
+                >
+                  +
+                </button>
               </div>
 
               <div class="item-total-price">
@@ -85,7 +95,26 @@
             </strong>
           </div>
 
-          <RouterLink class="btn btn-checkout btn-block" to="/checkout">
+          <!-- Cảnh báo lỗi tồn kho -->
+          <div v-if="cartError" class="cart-error-alert">
+            {{ cartError }}
+          </div>
+
+          <div v-if="hasInvalidStock" class="cart-stock-warning-alert">
+            ⚠️ Một số món trong giỏ hàng hiện đã hết hoặc số lượng chọn vượt quá số lượng hàng có sẵn trong kho. Vui lòng điều chỉnh lại trước khi thanh toán.
+          </div>
+
+          <button
+            v-if="hasInvalidStock"
+            type="button"
+            class="btn btn-checkout btn-block btn-disabled"
+            disabled
+            title="Vui lòng điều chỉnh số lượng sản phẩm hợp lệ"
+          >
+            <span>Tiến hành đặt hàng</span>
+          </button>
+
+          <RouterLink v-else class="btn btn-checkout btn-block" to="/checkout">
             <span>Tiến hành đặt hàng</span>
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -107,18 +136,32 @@
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useCartStore } from '../stores/cart'
 
 const cart = useCartStore()
+const cartError = ref('')
 const placeholder = 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800'
+
+const hasInvalidStock = computed(() => {
+  return cart.items.some(it => it.stock !== undefined && (it.stock <= 0 || it.quantity > it.stock))
+})
 
 function formatPrice(value) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value || 0)
 }
 
 async function changeQty(item, quantity) {
-  await cart.updateItem(item.product_id, quantity, item.color, item.size)
+  cartError.value = ''
+  if (quantity > item.quantity && item.stock !== undefined && quantity > item.stock) {
+    cartError.value = `Sản phẩm '${item.name}' chỉ còn ${item.stock} sản phẩm trong kho.`
+    return
+  }
+  try {
+    await cart.updateItem(item.product_id, quantity, item.color, item.size)
+  } catch (err) {
+    cartError.value = err.response?.data?.detail || 'Không thể cập nhật số lượng sản phẩm.'
+  }
 }
 
 onMounted(() => cart.fetchCart())
@@ -214,6 +257,62 @@ onMounted(() => cart.fetchCart())
   padding: 2px 8px;
   border-radius: 4px;
   color: var(--muted);
+}
+
+.stock-tag {
+  font-size: 0.75rem;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.stock-tag.out-of-stock {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.stock-tag.over-stock {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+.stock-tag.low-stock {
+  background: #fef9c3;
+  color: #854d0e;
+}
+
+.qty-picker button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.cart-error-alert {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  background: #fee2e2;
+  color: #b91c1c;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.cart-stock-warning-alert {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.btn-disabled {
+  background: #e2e8f0 !important;
+  color: #94a3b8 !important;
+  cursor: not-allowed !important;
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: none !important;
 }
 
 .item-unit-price {

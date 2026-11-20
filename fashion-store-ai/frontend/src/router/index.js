@@ -8,6 +8,7 @@ const routes = [
   { path: '/cart', name: 'cart', component: () => import('../pages/CartPage.vue'), meta: { auth: true } },
   { path: '/checkout', name: 'checkout', component: () => import('../pages/CheckoutPage.vue'), meta: { auth: true } },
   { path: '/orders', name: 'orders', component: () => import('../pages/OrdersPage.vue'), meta: { auth: true } },
+  { path: '/profile', name: 'profile', component: () => import('../pages/ProfilePage.vue'), meta: { auth: true } },
   { path: '/login', name: 'login', component: () => import('../pages/LoginPage.vue') },
   { path: '/admin', name: 'admin', component: () => import('../pages/AdminPage.vue'), meta: { auth: true, admin: true } },
 ]
@@ -29,7 +30,10 @@ router.beforeEach((to) => {
     return { name: 'home' }
   }
   // Nếu đã đăng nhập bằng tài khoản admin, chuyển thẳng vào trang quản trị
-  if (auth.isAdmin && (to.name === 'home' || to.name === 'login' || to.name === 'products' || to.name === 'cart' || to.name === 'checkout')) {
+  if (auth.isAdmin && (to.name === 'home' || to.name === 'login' || to.name === 'products' || to.name === 'cart' || to.name === 'checkout' || to.name === 'profile')) {
+    if (to.name === 'profile') {
+      return { name: 'admin', query: { section: 'store_info' } }
+    }
     return { name: 'admin' }
   }
   return true

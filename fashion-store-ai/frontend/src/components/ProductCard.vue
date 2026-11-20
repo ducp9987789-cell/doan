@@ -3,9 +3,10 @@
     <div class="img-wrapper">
       <img :src="product.images?.[0] || placeholder" :alt="product.name" loading="lazy" />
       
+      <!-- Badge hết hàng -->
+      <span v-if="isOutOfStock" class="badge-out-of-stock">Hết hàng</span>
       <!-- Giảm giá % badge -->
-      <span v-if="discountPercent" class="badge-sale">-{{ discountPercent }}%</span>
-      
+      <span v-else-if="discountPercent" class="badge-sale">-{{ discountPercent }}%</span>
       <!-- Nổi bật badge -->
       <span v-else-if="product.is_featured" class="badge-featured">Hot</span>
     </div>
@@ -25,19 +26,23 @@
         <button
           type="button"
           class="btn-add-cart"
-          :class="{ 'btn-added': addedRecently }"
-          :disabled="isAdding"
+          :class="{ 'btn-added': addedRecently, 'btn-out-of-stock': isOutOfStock }"
+          :disabled="isAdding || isOutOfStock"
           @click.stop.prevent="handleAddToCart"
         >
-          <svg v-if="!addedRecently" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg v-if="!isOutOfStock && !addedRecently" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="9" cy="21" r="1"></circle>
             <circle cx="20" cy="21" r="1"></circle>
             <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
           </svg>
-          <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <svg v-else-if="!isOutOfStock && addedRecently" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="20 6 9 17 4 12"></polyline>
           </svg>
-          <span>{{ addedRecently ? 'Đã thêm!' : isAdding ? 'Đang thêm...' : 'Thêm vào giỏ' }}</span>
+          <svg v-else viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+          </svg>
+          <span>{{ isOutOfStock ? 'Hết hàng' : addedRecently ? 'Đã thêm!' : isAdding ? 'Đang thêm...' : 'Thêm vào giỏ' }}</span>
         </button>
       </div>
     </div>
@@ -64,6 +69,8 @@ const addedRecently = ref(false)
 
 const placeholder = 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800'
 
+const isOutOfStock = computed(() => (props.product.stock ?? 0) <= 0)
+
 const discountPercent = computed(() => {
   if (props.product.sale_price && props.product.price && props.product.sale_price < props.product.price) {
     return Math.round(((props.product.price - props.product.sale_price) / props.product.price) * 100)
@@ -76,6 +83,8 @@ function formatPrice(value) {
 }
 
 async function handleAddToCart() {
+  if (isOutOfStock.value) return
+
   if (!auth.isAuthenticated) {
     router.push({ name: 'login', query: { redirect: route.fullPath } })
     return
@@ -137,6 +146,21 @@ async function handleAddToCart() {
 
 .product-card:hover .img-wrapper img {
   transform: scale(1.03);
+}
+
+.badge-out-of-stock {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: #64748b;
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 7px;
+  border-radius: 4px;
+  z-index: 2;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .badge-sale {
@@ -250,6 +274,14 @@ async function handleAddToCart() {
   background: #16a34a;
   color: #ffffff;
   border-color: #16a34a;
+}
+
+.btn-add-cart.btn-out-of-stock {
+  background: #f1f5f9;
+  color: #94a3b8;
+  border-color: #e2e8f0;
+  cursor: not-allowed;
+  opacity: 0.9;
 }
 
 .btn-add-cart:disabled {

@@ -598,6 +598,9 @@
 
             <template #cell-actions="{ row }">
               <div class="table-actions">
+                <button class="btn-action-edit" @click="openEditFaqModal(row)" title="Chỉnh sửa câu hỏi FAQ">
+                  ✏️ Sửa
+                </button>
                 <button class="btn-action-delete" @click="handleDeleteFaq(row)">
                   🗑️ Xóa
                 </button>
@@ -818,10 +821,10 @@
       </template>
     </AdminModal>
 
-    <!-- MODAL 4: THÊM CÂU HỎI FAQ -->
+    <!-- MODAL 4: THÊM / SỬA CÂU HỎI FAQ -->
     <AdminModal
       :show="showFaqModal"
-      title="Thêm câu hỏi FAQ cho Chatbot"
+      :title="editingFaqId ? 'Chỉnh sửa câu hỏi FAQ' : 'Thêm câu hỏi FAQ cho Chatbot'"
       icon="❓"
       @close="showFaqModal = false"
     >
@@ -837,7 +840,7 @@
       </form>
       <template #footer>
         <button class="btn secondary" type="button" @click="showFaqModal = false">Hủy</button>
-        <button class="btn" form="faqForm" type="submit">Lưu câu hỏi FAQ</button>
+        <button class="btn" form="faqForm" type="submit">{{ editingFaqId ? 'Cập nhật FAQ' : 'Lưu câu hỏi FAQ' }}</button>
       </template>
     </AdminModal>
 
@@ -1162,8 +1165,9 @@ import { useAuthStore } from '../stores/auth'
 
 const auth = useAuthStore()
 const router = useRouter()
+const route = useRoute()
 
-const currentSection = ref('dashboard')
+const currentSection = ref(route.query.section || 'dashboard')
 const loading = ref(false)
 const sidebarOpen = ref(typeof window === 'undefined' || window.innerWidth > 1024)
 const adminMainRef = ref(null)
@@ -1295,6 +1299,7 @@ const promoForm = reactive({
 })
 
 const showFaqModal = ref(false)
+const editingFaqId = ref(null)
 const faqForm = reactive({ question: '', answer: '', category: 'general' })
 
 const showOrderModal = ref(false)
@@ -2474,15 +2479,32 @@ async function saveStoreInfo() {
 
 // ================= CRUD CHATBOT & FAQ =================
 function openCreateFaqModal() {
+  editingFaqId.value = null
   Object.assign(faqForm, { question: '', answer: '', category: 'general' })
+  showFaqModal.value = true
+}
+
+function openEditFaqModal(faq) {
+  editingFaqId.value = faq.id || faq._id
+  Object.assign(faqForm, {
+    question: faq.question || '',
+    answer: faq.answer || '',
+    category: faq.category || 'general',
+  })
   showFaqModal.value = true
 }
 
 async function submitFaqForm() {
   try {
-    await chatApi.createFaq({ ...faqForm })
-    addLog('chatbot', 'create', `Thêm câu hỏi FAQ: ${faqForm.question}`, `Đã lưu câu trả lời cho Chatbot AI`)
+    if (editingFaqId.value) {
+      await chatApi.updateFaq(editingFaqId.value, { ...faqForm })
+      addLog('chatbot', 'update', `Cập nhật câu hỏi FAQ: ${faqForm.question}`, `Đã cập nhật câu trả lời cho Chatbot AI`)
+    } else {
+      await chatApi.createFaq({ ...faqForm })
+      addLog('chatbot', 'create', `Thêm câu hỏi FAQ: ${faqForm.question}`, `Đã lưu câu trả lời cho Chatbot AI`)
+    }
     showFaqModal.value = false
+    editingFaqId.value = null
     const { data } = await chatApi.faqs()
     faqs.value = data || []
   } catch (err) {

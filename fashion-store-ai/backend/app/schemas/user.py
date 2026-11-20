@@ -9,6 +9,16 @@ class UserRegister(BaseModel):
     password: str = Field(min_length=6)
     full_name: str
     phone: Optional[str] = None
+    otp: Optional[str] = None
+
+
+class RegisterSendOtpRequest(BaseModel):
+    email: EmailStr
+
+
+class RegisterVerifyOtpRequest(BaseModel):
+    email: EmailStr
+    otp: str
 
 
 class UserLogin(BaseModel):
@@ -35,5 +45,26 @@ class TokenResponse(BaseModel):
 
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
+    email: Optional[EmailStr] = None
     phone: Optional[str] = None
     address: Optional[str] = None
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=6)
+
+
+class SendOtpRequest(BaseModel):
+    email_or_phone: str
+
+
+class VerifyOtpRequest(BaseModel):
+    email_or_phone: str
+    otp: str
+
+
+class ResetPasswordRequest(BaseModel):
+    email_or_phone: str
+    otp: str
+    new_password: str = Field(min_length=6)

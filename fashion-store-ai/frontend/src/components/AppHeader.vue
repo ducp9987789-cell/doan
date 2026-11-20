@@ -67,8 +67,8 @@
             <RouterLink to="/login?tab=register" class="btn-auth-signup">Đăng ký</RouterLink>
           </div>
 
-          <div v-else class="user-menu">
-            <RouterLink to="/orders" class="user-action-link" title="Đơn hàng của tôi">
+          <div v-else class="user-menu" ref="userMenuRef">
+            <RouterLink v-if="!auth.isAdmin" to="/orders" class="user-action-link" title="Đơn hàng của tôi">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" />
                 <path d="M3 6h18" />
@@ -87,14 +87,59 @@
               <span>Quản trị</span>
             </RouterLink>
 
-            <button class="btn-logout" @click="handleLogout" title="Đăng xuất khỏi tài khoản">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                <polyline points="16 17 21 12 16 7"></polyline>
-                <line x1="21" y1="12" x2="9" y2="12"></line>
-              </svg>
-              <span>Đăng xuất</span>
-            </button>
+            <!-- User Avatar / Logo Dropdown Menu (Chỉ để logo ở góc phải) -->
+            <div class="user-dropdown-container">
+              <button
+                class="user-avatar-btn"
+                @click="toggleDropdown"
+                :class="{ 'is-active': showDropdown }"
+                type="button"
+              >
+                <div class="user-avatar-circle">
+                  {{ userInitial }}
+                </div>
+              </button>
+
+              <!-- Menu Dropdown -->
+              <div v-if="showDropdown" class="user-dropdown-menu fade-in">
+                <div class="dropdown-header">
+                  <div class="dropdown-avatar">{{ userInitial }}</div>
+                  <div class="dropdown-user-info">
+                    <strong class="dropdown-name">{{ cleanName(auth.user?.full_name) || 'Người dùng' }}</strong>
+                    <small class="dropdown-email">{{ auth.user?.email }}</small>
+                    <span class="dropdown-badge" :class="auth.isAdmin ? 'badge-admin' : 'badge-user'">
+                      {{ auth.isAdmin ? '👑 Quản Trị Viên' : 'Khách Hàng' }}
+                    </span>
+                  </div>
+                </div>
+
+                <div class="dropdown-divider"></div>
+
+                <!-- Option 1: Cài đặt -->
+                <button class="dropdown-item" @click="handleGoSettings" type="button">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                  </svg>
+                  <div class="dropdown-item-text">
+                    <span class="dropdown-item-title">Cài đặt</span>
+                    <small class="dropdown-item-sub">{{ auth.isAdmin ? 'Quản lý thông tin shop' : 'Hồ sơ cá nhân & Đổi mật khẩu' }}</small>
+                  </div>
+                </button>
+
+                <!-- Option 2: Đăng xuất -->
+                <button class="dropdown-item item-logout" @click="handleLogout" type="button">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                    <polyline points="16 17 21 12 16 7"></polyline>
+                    <line x1="21" y1="12" x2="9" y2="12"></line>
+                  </svg>
+                  <div class="dropdown-item-text">
+                    <span class="dropdown-item-title text-danger">Đăng xuất</span>
+                  </div>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -132,7 +177,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { productApi } from '../services'
 import { useAuthStore } from '../stores/auth'
@@ -145,6 +190,42 @@ const route = useRoute()
 
 const searchQuery = ref(route.query.q || '')
 const categoryList = ref([])
+const showDropdown = ref(false)
+const userMenuRef = ref(null)
+
+function cleanName(str) {
+  return (str || '').replace(/\s*\(Khách Hàng VIP\)/gi, '').trim()
+}
+
+const userInitial = computed(() => {
+  const name = cleanName(auth.user?.full_name || '')
+  return name.trim() ? name.trim().charAt(0).toUpperCase() : (auth.isAdmin ? 'A' : 'U')
+})
+
+const userNameDisplay = computed(() => {
+  const name = auth.user?.full_name || ''
+  const parts = name.trim().split(' ')
+  return parts.length > 0 ? parts[parts.length - 1] : 'Tài khoản'
+})
+
+function toggleDropdown() {
+  showDropdown.value = !showDropdown.value
+}
+
+function handleGoSettings() {
+  showDropdown.value = false
+  if (auth.isAdmin) {
+    router.push({ name: 'admin', query: { section: 'store_info' } })
+  } else {
+    router.push({ name: 'profile' })
+  }
+}
+
+function handleClickOutside(event) {
+  if (userMenuRef.value && !userMenuRef.value.contains(event.target)) {
+    showDropdown.value = false
+  }
+}
 
 const defaultCategories = [
   { id: '', name: 'Áo Nam & Nữ', slug: 'ao' },
@@ -208,6 +289,11 @@ watch(
 onMounted(() => {
   loadCategories()
   loadCart()
+  window.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('click', handleClickOutside)
 })
 
 watch(() => auth.isAuthenticated, loadCart)
@@ -478,24 +564,182 @@ watch(() => auth.isAuthenticated, loadCart)
   color: #b78103;
 }
 
-.btn-logout {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.5rem 0.85rem;
-  border-radius: 999px;
-  font-size: 0.88rem;
-  font-weight: 600;
-  color: var(--danger);
-  background: transparent;
-  border: 1px solid rgba(179, 57, 57, 0.2);
-  cursor: pointer;
-  transition: all 0.2s ease;
+/* User Dropdown Container & Menu */
+.user-dropdown-container {
+  position: relative;
 }
 
-.btn-logout:hover {
-  background: var(--danger-soft);
-  border-color: var(--danger);
+.user-avatar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  outline: none;
+}
+
+.user-avatar-btn:hover,
+.user-avatar-btn.is-active {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.user-avatar-circle {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0f766e, #14b8a6);
+  color: white;
+  font-weight: 700;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(20, 184, 166, 0.3);
+}
+
+.user-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 250px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.12), 0 8px 10px -6px rgba(15, 23, 42, 0.05);
+  padding: 0.5rem 0;
+  z-index: 1000;
+  animation: fadeInDown 0.15s ease-out;
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dropdown-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+}
+
+.dropdown-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0f766e, #14b8a6);
+  color: white;
+  font-weight: 700;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.dropdown-user-info {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.dropdown-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dropdown-email {
+  font-size: 0.78rem;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+}
+
+.dropdown-badge {
+  display: inline-block;
+  align-self: flex-start;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  margin-top: 4px;
+}
+
+.badge-admin {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.badge-user {
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: #f1f5f9;
+  margin: 0.35rem 0;
+}
+
+.dropdown-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 1rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease;
+  color: #334155;
+}
+
+.dropdown-item:hover {
+  background: #f8fafc;
+  color: #0f766e;
+}
+
+.dropdown-item-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.dropdown-item-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.dropdown-item-sub {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin-top: 1px;
+}
+
+.dropdown-item.item-logout:hover {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.text-danger {
+  color: #dc2626 !important;
 }
 
 /* Hàng dưới: Danh mục sản phẩm */
