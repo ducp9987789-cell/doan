@@ -19,7 +19,8 @@ router = APIRouter(tags=["chat"])
 @router.post("/chat", response_model=ChatResponse)
 async def chat(payload: ChatRequest, current_user: dict | None = Depends(get_optional_user)) -> dict:
     user_id = current_user["id"] if current_user else None
-    return await ChatService.ask(payload, user_id=user_id)
+    user_role = current_user.get("role") if current_user else "public"
+    return await ChatService.ask(payload, user_id=user_id, role=user_role)
 
 
 @router.get("/faqs", response_model=list[FAQResponse])

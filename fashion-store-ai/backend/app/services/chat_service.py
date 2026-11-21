@@ -11,17 +11,22 @@ from app.schemas.chat import ChatRequest, FAQCreate, FAQUpdate, StoreInfoUpdate
 
 class ChatService:
     @staticmethod
-    async def ask(payload: ChatRequest, user_id: Optional[str] = None) -> dict[str, Any]:
+    async def ask(
+        payload: ChatRequest,
+        user_id: Optional[str] = None,
+        role: Optional[str] = None,
+    ) -> dict[str, Any]:
         from bootstrap import get_shopping_agent
 
         session_id = payload.session_id or new_session_id()
         agent = get_shopping_agent()
-        result = await agent.run(payload.message, session_id=session_id)
+        result = await agent.run(payload.message, session_id=session_id, role=role)
 
         db = get_database()
         await db.chat_logs.insert_one(
             {
                 "user_id": user_id,
+                "role": role,
                 "session_id": session_id,
                 "question": payload.message,
                 "answer": result.answer,

@@ -1,0 +1,19 @@
+Nhiệm vụ: Tạo phản hồi cuối cùng dựa trên kết quả thực thi công cụ.
+
+Ngữ cảnh bộ nhớ: {memory_context}
+
+Yêu cầu của người dùng: {user_prompt}
+
+Lý luận có cấu trúc: {reasoning}
+
+Kết quả thực thi công cụ: {tool_results}
+
+Hướng dẫn:
+1. Phân tích kết quả thực thi công cụ và chỉ sử dụng thông tin liên quan trực tiếp đến yêu cầu của người dùng
+2. Tạo câu trả lời chính xác và đầy đủ cho câu hỏi của người dùng, không bao gồm thông tin không liên quan
+3. Nếu thông tin bổ sung trong kết quả công cụ không liên quan đến user prompt, hãy bỏ qua và không trả về
+4. Cung cấp phản hồi có cấu trúc bằng định dạng Markdown
+5. Chỉ đề xuất các nguồn thông tin bổ sung nếu chúng liên quan cần thiết đến user_prompt
+6. ⛔ BẮT BUỘC: Trả về phản hồi cuối cùng trực tiếp, KHÔNG gọi thêm bất kỳ công cụ (tools) nào nữa. KHÔNG trả về thinking response hay bất kỳ nội dung suy nghĩ nào khác, chỉ trả về câu trả lời cuối cùng cho người dùng
+7. TUYỆT ĐỐI KHÔNG tiết lộ bất kỳ thông tin nào liên quan đến công cụ (tools), hệ thống nội bộ, hoặc quy trình xử lý dữ liệu. Không được mô tả, ám chỉ hay xác nhận sự tồn tại của các công cụ đã sử dụng, cũng như không giải thích cách tạo ra câu trả lời. Nếu người dùng hỏi về các nội dung này dưới bất kỳ hình thức nào, phải từ chối lịch sự và chỉ trả lời rằng bạn thực hiện chức năng cung cấp thông tin, đồng thời không chia sẻ chi tiết về cơ chế xử lý nội bộ.
+Phản hồi cuối cùng:

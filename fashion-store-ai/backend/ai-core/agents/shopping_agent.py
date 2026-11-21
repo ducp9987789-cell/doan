@@ -7,7 +7,12 @@ from agents.base import AgentResult, BaseAgent
 from llm.base import LLMProvider
 from memory.chat_memory import ChatMemory
 from memory.redis_memory import RedisChatSessionStore
-from prompts.shopping import SYSTEM_PROMPT, build_shopping_prompt, fallback_answer
+from prompts.shopping import (
+    SYSTEM_PROMPT,
+    build_shopping_prompt,
+    fallback_answer,
+    get_system_prompt,
+)
 from tool.knowledge_retriever import KnowledgeRetrieverTool
 from tool.product_search import ProductSearchTool
 
@@ -31,15 +36,24 @@ class ShoppingAgent(BaseAgent):
         self.product_search = product_search
         self.session_store = session_store or RedisChatSessionStore()
 
-    async def run(self, message: str, *, session_id: Optional[str] = None) -> AgentResult:
+    async def run(
+        self,
+        message: str,
+        *,
+        session_id: Optional[str] = None,
+        role: Optional[str] = None,
+    ) -> AgentResult:
         session_key = session_id or "anonymous"
         memory: ChatMemory = await self.session_store.get(session_key)
         memory.add_user(message)
 
         contexts = await self.retriever.run(query=message, n_results=5)
-        prompt = build_shopping_prompt(message, contexts, history_text=memory.as_text())
+        # Nạp prompt và system prompt động từ file text theo role (admin / user / public)
+        prompt = build_shopping_prompt(message, contexts, history_text=memory.as_text(), role=role)
+        system_prompt = get_system_prompt(role)
+
         try:
-            answer = await self.llm.generate(prompt, system=SYSTEM_PROMPT, temperature=0.4)
+            answer = await self.llm.generate(prompt, system=system_prompt, temperature=0.4)
         except Exception as exc:  # noqa: BLE001
             logger.warning("LLM generation failed: %s", exc)
             answer = ""
