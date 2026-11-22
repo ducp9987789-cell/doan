@@ -206,9 +206,12 @@ class UserService:
         db = get_database()
         user = await db.users.find_one({"email": email.lower().strip()})
         if not user or not verify_password(password, user["hashed_password"]):
-            raise HTTPException(status_code=401, detail="Incorrect email or password")
+            raise HTTPException(status_code=401, detail="Email hoặc mật khẩu không chính xác.")
         if not user.get("is_active", True):
-            raise HTTPException(status_code=403, detail="Account is disabled")
+            raise HTTPException(
+                status_code=403,
+                detail="Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên."
+            )
         return user
 
     @staticmethod

@@ -54,6 +54,11 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict[str, Any
     user = await db.users.find_one({"_id": ObjectId(user_id)})
     if not user:
         raise credentials_exception
+    if not user.get("is_active", True):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên."
+        )
     user["id"] = str(user["_id"])
     return user
 

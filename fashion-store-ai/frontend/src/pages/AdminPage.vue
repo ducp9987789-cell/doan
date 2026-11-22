@@ -746,11 +746,48 @@
       @close="showProductModal = false"
     >
       <form @submit.prevent="submitProductForm" id="prodForm">
+        <!-- Hàng 1: Tên sản phẩm + Upload file hình ảnh -->
         <div class="form-row-2">
           <div class="field">
             <label>Tên sản phẩm thời trang *</label>
             <input v-model="productForm.name" placeholder="Áo Sơ Mi Oxford Premium" required />
           </div>
+          <div class="field">
+            <label>Hình ảnh sản phẩm (Upload file)</label>
+            <div class="image-upload-box">
+              <input
+                type="file"
+                ref="productImageInput"
+                accept="image/*"
+                @change="handleProductImageUpload"
+                style="display: none;"
+              />
+              <button
+                type="button"
+                class="btn-choose-file"
+                @click="$refs.productImageInput?.click()"
+                :disabled="uploadingProductImage"
+              >
+                📁 {{ uploadingProductImage ? 'Đang tải ảnh...' : 'Chọn file ảnh' }}
+              </button>
+              <div v-if="productForm.imageUrl" class="uploaded-img-preview">
+                <img :src="productForm.imageUrl" alt="Preview" class="thumb-img" />
+                <button
+                  type="button"
+                  class="btn-del-img"
+                  @click="productForm.imageUrl = ''"
+                  title="Xóa ảnh này"
+                >
+                  ✕
+                </button>
+              </div>
+              <span v-else class="upload-hint-text">Chưa có ảnh (tùy chọn)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hàng 2: Danh mục + Giá niêm yết + Giá khuyến mãi -->
+        <div class="form-row-3">
           <div class="field">
             <label>Danh mục *</label>
             <select v-model="productForm.category_id" required>
@@ -758,9 +795,6 @@
               <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
             </select>
           </div>
-        </div>
-
-        <div class="form-row-3">
           <div class="field">
             <label>Giá niêm yết (VNĐ) *</label>
             <input v-model.number="productForm.price" type="number" placeholder="389000" required />
@@ -769,26 +803,72 @@
             <label>Giá khuyến mãi (VNĐ)</label>
             <input v-model.number="productForm.sale_price" type="number" placeholder="329000" />
           </div>
-          <div class="field">
-            <label>Số lượng tồn kho</label>
-            <input v-model.number="productForm.stock" type="number" placeholder="50" />
-          </div>
         </div>
 
-        <div class="form-row-2">
-          <div class="field">
-            <label>Màu sắc (Cách nhau dấu phẩy)</label>
-            <input v-model="productForm.colorsStr" placeholder="Trắng, Đen, Xanh Pastel" />
+        <!-- BẢNG BIẾN THỂ: MÀU SẮC, SIZE, TỒN KHO -->
+        <div class="field variant-table-field">
+          <div class="variant-header-row">
+            <label style="margin: 0; font-weight: 700;">Bảng biến thể (Màu sắc, Size, Tồn kho) *</label>
+            <span class="badge-total-stock">Tổng tồn kho: <strong>{{ totalVariantStock }}</strong> sản phẩm</span>
           </div>
-          <div class="field">
-            <label>Kích cỡ (Cách nhau dấu phẩy)</label>
-            <input v-model="productForm.sizesStr" placeholder="S, M, L, XL" />
+          <div class="variant-table-container">
+            <table class="variant-edit-table">
+              <thead>
+                <tr>
+                  <th style="width: 32%;">Màu sắc</th>
+                  <th style="width: 32%;">Size</th>
+                  <th style="width: 26%;">Tồn kho</th>
+                  <th style="width: 10%; text-align: center;"></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(vRow, vIdx) in productForm.variants" :key="vIdx">
+                  <td>
+                    <input
+                      type="text"
+                      v-model="vRow.color"
+                      placeholder="Màu sắc (VD: Trắng)"
+                      required
+                      class="variant-input"
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="text"
+                      v-model="vRow.size"
+                      placeholder="Size (VD: M)"
+                      required
+                      class="variant-input"
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="text"
+                      v-model="vRow.stock"
+                      placeholder="Tồn kho (VD: 50)"
+                      required
+                      class="variant-input"
+                    />
+                  </td>
+                  <td style="text-align: center;">
+                    <button
+                      type="button"
+                      class="btn-delete-row-x"
+                      @click="removeVariantRow(vIdx)"
+                      title="Xóa dòng này"
+                    >
+                      ✕
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="variant-add-row-bar">
+              <button type="button" class="btn-add-variant-row" @click="addVariantRow">
+                + Thêm dòng
+              </button>
+            </div>
           </div>
-        </div>
-
-        <div class="field">
-          <label>Link hình ảnh sản phẩm (URL)</label>
-          <input v-model="productForm.imageUrl" placeholder="https://images.unsplash.com/photo-..." />
         </div>
 
         <div class="field">
@@ -1365,19 +1445,55 @@ const categoryForm = reactive({ name: '', slug: '', description: '', is_active: 
 
 const showProductModal = ref(false)
 const editingProduct = ref(null)
+const productImageInput = ref(null)
+const uploadingProductImage = ref(false)
+
 const productForm = reactive({
   name: '',
   category_id: '',
   price: 299000,
   sale_price: null,
-  stock: 50,
-  colorsStr: 'Đen, Trắng',
-  sizesStr: 'S, M, L, XL',
   imageUrl: '',
   description: '',
   is_featured: false,
   is_active: true,
+  variants: [
+    { color: 'Đen', size: 'M', stock: '50' }
+  ],
 })
+
+const totalVariantStock = computed(() => {
+  return (productForm.variants || []).reduce((sum, v) => sum + (parseInt(v.stock, 10) || 0), 0)
+})
+
+function addVariantRow() {
+  productForm.variants.push({ color: '', size: '', stock: '50' })
+}
+
+function removeVariantRow(idx) {
+  if (productForm.variants.length > 1) {
+    productForm.variants.splice(idx, 1)
+  } else {
+    productForm.variants[0] = { color: '', size: '', stock: '0' }
+  }
+}
+
+async function handleProductImageUpload(e) {
+  const file = e.target.files?.[0]
+  if (!file) return
+  uploadingProductImage.value = true
+  try {
+    const formData = new FormData()
+    formData.append('file', file)
+    const { data } = await productApi.uploadImage(formData)
+    productForm.imageUrl = data.url
+  } catch (err) {
+    alert(err.response?.data?.detail || 'Không thể tải ảnh lên. Vui lòng thử lại!')
+  } finally {
+    uploadingProductImage.value = false
+    if (e.target) e.target.value = ''
+  }
+}
 
 const showPromoModal = ref(false)
 const editingPromo = ref(null)
@@ -2364,9 +2480,11 @@ async function handleToggleCategoryActive(cat, newActive) {
   try {
     await productApi.updateCategory(cat.id, { is_active: newActive })
     addLog('category', 'update', `Đổi trạng thái danh mục: ${cat.name}`, `Chuyển sang: ${newActive ? 'Đang hoạt động' : 'Tạm ẩn'}`)
+    await loadCategories()
   } catch (err) {
     cat.is_active = oldActive
     alert(err.response?.data?.detail || 'Không thể cập nhật trạng thái danh mục')
+    await loadCategories()
   }
 }
 
@@ -2376,9 +2494,11 @@ async function handleToggleProductActive(prod, newActive) {
   try {
     await productApi.updateProduct(prod.id, { is_active: newActive })
     addLog('product', 'update', `Đổi trạng thái sản phẩm: ${prod.name}`, `Chuyển sang: ${newActive ? 'Đang hoạt động' : 'Tạm ẩn'}`)
+    await loadProducts()
   } catch (err) {
     prod.is_active = oldActive
     alert(err.response?.data?.detail || 'Không thể cập nhật trạng thái sản phẩm')
+    await loadProducts()
   }
 }
 
@@ -2390,44 +2510,81 @@ function openCreateProductModal() {
     category_id: categories.value[0]?.id || '',
     price: 299000,
     sale_price: null,
-    stock: 50,
-    colorsStr: 'Đen, Trắng',
-    sizesStr: 'S, M, L, XL',
     imageUrl: '',
     description: '',
     is_featured: false,
     is_active: true,
+    variants: [
+      { color: 'Đen', size: 'M', stock: '50' },
+      { color: 'Trắng', size: 'L', stock: '50' },
+    ],
   })
   showProductModal.value = true
 }
 
 function openEditProductModal(prod) {
   editingProduct.value = prod
+  let initialVariants = []
+  if (prod.variants && prod.variants.length > 0) {
+    initialVariants = prod.variants.map((v) => ({
+      color: v.color || '',
+      size: v.size || '',
+      stock: String(v.stock ?? 0),
+    }))
+  } else if ((prod.colors && prod.colors.length > 0) || (prod.sizes && prod.sizes.length > 0)) {
+    const cols = prod.colors && prod.colors.length > 0 ? prod.colors : ['Tiêu chuẩn']
+    const szs = prod.sizes && prod.sizes.length > 0 ? prod.sizes : ['Freesize']
+    const perStock = Math.max(1, Math.floor((prod.stock || 50) / (cols.length * szs.length)))
+    for (const c of cols) {
+      for (const s of szs) {
+        initialVariants.push({ color: c, size: s, stock: String(perStock) })
+      }
+    }
+  } else {
+    initialVariants = [{ color: 'Tiêu chuẩn', size: 'Freesize', stock: String(prod.stock || 50) }]
+  }
+
   Object.assign(productForm, {
     name: prod.name,
     category_id: prod.category_id,
     price: prod.price,
     sale_price: prod.sale_price,
-    stock: prod.stock || 50,
-    colorsStr: (prod.colors || []).join(', '),
-    sizesStr: (prod.sizes || []).join(', '),
     imageUrl: prod.images?.[0] || '',
     description: prod.description || '',
     is_featured: Boolean(prod.is_featured),
     is_active: prod.is_active !== false,
+    variants: initialVariants,
   })
   showProductModal.value = true
 }
 
 async function submitProductForm() {
+  const cleanVariants = (productForm.variants || [])
+    .map((v) => ({
+      color: (v.color || '').trim(),
+      size: (v.size || '').trim(),
+      stock: parseInt(v.stock, 10) || 0,
+    }))
+    .filter((v) => v.color && v.size)
+
+  if (cleanVariants.length === 0) {
+    alert('Vui lòng nhập ít nhất một dòng biến thể (Màu sắc, Size, Tồn kho) hợp lệ!')
+    return
+  }
+
+  const totalStock = cleanVariants.reduce((sum, v) => sum + v.stock, 0)
+  const colors = Array.from(new Set(cleanVariants.map((v) => v.color)))
+  const sizes = Array.from(new Set(cleanVariants.map((v) => v.size)))
+
   const payload = {
     name: productForm.name,
     category_id: productForm.category_id,
     price: Number(productForm.price),
     sale_price: productForm.sale_price ? Number(productForm.sale_price) : null,
-    stock: Number(productForm.stock) || 0,
-    colors: productForm.colorsStr.split(',').map((s) => s.trim()).filter(Boolean),
-    sizes: productForm.sizesStr.split(',').map((s) => s.trim()).filter(Boolean),
+    stock: totalStock,
+    colors: colors,
+    sizes: sizes,
+    variants: cleanVariants,
     images: productForm.imageUrl ? [productForm.imageUrl] : [],
     description: productForm.description,
     is_featured: productForm.is_featured,
@@ -4059,5 +4216,157 @@ onUnmounted(() => {
 .admin-dropdown-item .text-danger {
   color: #dc2626 !important;
 }
+
+/* Image upload beside product name */
+.image-upload-box {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  min-height: 42px;
+}
+.btn-choose-file {
+  padding: 0.55rem 0.9rem;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.btn-choose-file:hover:not(:disabled) {
+  background: #e5e7eb;
+  border-color: #9ca3af;
+}
+.uploaded-img-preview {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  position: relative;
+}
+.thumb-img {
+  width: 42px;
+  height: 42px;
+  border-radius: 6px;
+  object-fit: cover;
+  border: 1px solid #e5e7eb;
+}
+.btn-del-img {
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fca5a5;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0;
+  font-weight: bold;
+}
+.btn-del-img:hover {
+  background: #ef4444;
+  color: #ffffff;
+}
+.upload-hint-text {
+  font-size: 0.8rem;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+/* Variant table in product modal */
+.variant-table-field {
+  margin-top: 0.6rem;
+  margin-bottom: 0.8rem;
+}
+.variant-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.45rem;
+}
+.badge-total-stock {
+  font-size: 0.82rem;
+  background: #ecfdf5;
+  color: #065f46;
+  padding: 0.25rem 0.65rem;
+  border-radius: 6px;
+  border: 1px solid #a7f3d0;
+}
+.variant-table-container {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #ffffff;
+}
+.variant-edit-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.variant-edit-table th {
+  background: #f9fafb;
+  color: #4b5563;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 0.6rem 0.8rem;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+}
+.variant-edit-table td {
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid #f3f4f6;
+}
+.variant-input {
+  width: 100%;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.88rem;
+  box-sizing: border-box;
+}
+.variant-input:focus {
+  border-color: #2563eb;
+  outline: none;
+}
+.btn-delete-row-x {
+  background: none;
+  border: none;
+  color: #ef4444;
+  font-size: 1.15rem;
+  font-weight: 800;
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+  transition: transform 0.15s;
+}
+.btn-delete-row-x:hover {
+  transform: scale(1.25);
+  color: #b91c1c;
+}
+.variant-add-row-bar {
+  padding: 0.5rem 0.8rem;
+  background: #fafafa;
+  border-top: 1px dashed #e5e7eb;
+}
+.btn-add-variant-row {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  padding: 0.35rem 0.85rem;
+  border-radius: 6px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-add-variant-row:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+
 
 </style>

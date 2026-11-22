@@ -1,8 +1,10 @@
 from contextlib import asynccontextmanager
 import logging
 
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.api.v1 import api_router
 from app.core.ai_bootstrap import attach_redis_to_ai_core, init_ai_core
@@ -55,6 +57,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(api_router)
+
+# Mount thư mục lưu trữ ảnh tải lên
+UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "static", "uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+app.mount("/static/uploads", StaticFiles(directory=UPLOAD_DIR), name="static_uploads")
+app.mount("/api/v1/static/uploads", StaticFiles(directory=UPLOAD_DIR), name="api_static_uploads")
 
 
 @app.get("/health")

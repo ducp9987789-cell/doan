@@ -62,7 +62,29 @@ class ProductService:
     @staticmethod
     async def delete_category(category_id: str) -> None:
         db = get_database()
-        result = await db.categories.delete_one({"_id": to_object_id(category_id)})
+        cat_oid = to_object_id(category_id)
+
+        # 1. Kiểm tra danh mục có tồn tại không
+        category = await db.categories.find_one({"_id": cat_oid})
+        if not category:
+            raise HTTPException(status_code=404, detail="Category not found")
+
+        # 2. Kiểm tra xem có sản phẩm nào đang thuộc danh mục này không
+        product_count = await db.products.count_documents({
+            "$or": [
+                {"category_id": category_id},
+                {"category_id": str(category_id)},
+                {"category_id": cat_oid},
+            ]
+        })
+        if product_count > 0:
+            cat_name = category.get("name", "này")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Không thể xóa danh mục '{cat_name}' vì đang có {product_count} sản phẩm thuộc danh mục. Vui lòng chuyển hoặc xóa các sản phẩm đó trước.",
+            )
+
+        result = await db.categories.delete_one({"_id": cat_oid})
         if result.deleted_count == 0:
             raise HTTPException(status_code=404, detail="Category not found")
 
@@ -84,8 +106,30 @@ class ProductService:
         query: dict[str, Any] = {}
         if active_only:
             query["is_active"] = True
-        if category_id:
-            query["category_id"] = category_id
+            # Chỉ hiển thị các sản phẩm thuộc danh mục đang hoạt động
+            active_cats = await db.categories.find({"is_active": True}, {"_id": 1}).to_list(1000)
+            active_cat_ids_str = [str(c["_id"]) for c in active_cats]
+            active_cat_ids_oid = [c["_id"] for c in active_cats]
+            all_active_cat_ids = active_cat_ids_str + active_cat_ids_oid
+
+            if category_id:
+                is_cat_active = (
+                    category_id in active_cat_ids_str or
+                    (ObjectId.is_valid(category_id) and ObjectId(category_id) in active_cat_ids_oid)
+                )
+                if not is_cat_active:
+                    return {"items": [], "total": 0, "page": page, "page_size": page_size}
+                if ObjectId.is_valid(category_id):
+                    query["$or"] = [{"category_id": category_id}, {"category_id": ObjectId(category_id)}]
+                else:
+                    query["category_id"] = category_id
+            else:
+                query["category_id"] = {"$in": all_active_cat_ids}
+        elif category_id:
+            if ObjectId.is_valid(category_id):
+                query["$or"] = [{"category_id": category_id}, {"category_id": ObjectId(category_id)}]
+            else:
+                query["category_id"] = category_id
         if color:
             query["colors"] = {"$regex": f"^{color}$", "$options": "i"}
         if size:

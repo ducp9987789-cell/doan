@@ -1,6 +1,9 @@
+import os
+import shutil
 from typing import Optional
+import uuid
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 
 from app.core.security import get_current_admin
 from app.schemas.product import (
@@ -41,6 +44,25 @@ async def delete_category(category_id: str) -> dict:
     return {"message": "Category deleted"}
 
 
+STATIC_UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "static", "uploads")
+os.makedirs(STATIC_UPLOAD_DIR, exist_ok=True)
+
+
+@router.post("/products/upload-image", dependencies=[Depends(get_current_admin)])
+async def upload_product_image(file: UploadFile = File(...)) -> dict:
+    filename = file.filename or "image.jpg"
+    ext = os.path.splitext(filename)[1].lower()
+    if ext not in [".jpg", ".jpeg", ".png", ".webp", ".gif"]:
+        raise HTTPException(status_code=400, detail="Định dạng ảnh không hợp lệ (hỗ trợ .jpg, .png, .webp, .gif).")
+
+    unique_name = f"{uuid.uuid4().hex}{ext}"
+    dest_path = os.path.join(STATIC_UPLOAD_DIR, unique_name)
+    with open(dest_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    return {"url": f"/static/uploads/{unique_name}", "filename": unique_name}
+
+
 @router.get("/products", response_model=ProductListResponse)
 async def list_products(
     q: Optional[str] = None,
@@ -52,6 +74,7 @@ async def list_products(
     featured: Optional[bool] = None,
     page: int = Query(1, ge=1),
     page_size: int = Query(12, ge=1, le=50),
+    active_only: bool = True,
 ) -> dict:
     return await ProductService.list_products(
         q=q,
@@ -63,7 +86,7 @@ async def list_products(
         featured=featured,
         page=page,
         page_size=page_size,
-        active_only=True,
+        active_only=active_only,
     )
 
 

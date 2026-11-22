@@ -35,6 +35,10 @@ export const productApi = {
 
   create: (payload) => api.post('/products', payload),
   update: (id, payload) => api.patch(`/products/${id}`, payload),
+  updateProduct: (id, payload) => api.patch(`/products/${id}`, payload),
+  uploadImage: (formData) => api.post('/products/upload-image', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
   remove: (id) => api.delete(`/products/${id}`),
 }
 

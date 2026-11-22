@@ -45,6 +45,19 @@ class OrderService:
             raise HTTPException(status_code=404, detail="Sản phẩm không tồn tại")
         
         available_stock = product.get("stock", 0)
+        # Nếu sản phẩm có phân loại biến thể, lấy tồn kho theo biến thể cụ thể
+        variants = product.get("variants") or []
+        req_color = (payload.color or "").strip()
+        req_size = (payload.size or "").strip()
+        if variants and (req_color or req_size):
+            for v in variants:
+                v_col = (v.get("color") or "").strip()
+                v_sz = (v.get("size") or "").strip()
+                if (not req_color or v_col.lower() == req_color.lower()) and \
+                   (not req_size or v_sz.upper() == req_size.upper()):
+                    available_stock = v.get("stock", 0)
+                    break
+
         if available_stock <= 0:
             raise HTTPException(status_code=400, detail="Sản phẩm này hiện đã hết hàng.")
 
@@ -192,6 +205,29 @@ class OrderService:
                     detail=f"Sản phẩm '{item.get('name')}' chỉ còn {avail_stock} sản phẩm trong kho (bạn đặt {item['quantity']})."
                 )
 
+            # Kiểm tra tồn kho theo từng biến thể (màu sắc, size) nếu có
+            variants = prod.get("variants") or []
+            item_color = (item.get("color") or "").strip()
+            item_size = (item.get("size") or "").strip()
+            if variants and (item_color or item_size):
+                for v in variants:
+                    v_col = (v.get("color") or "").strip()
+                    v_sz = (v.get("size") or "").strip()
+                    if (not item_color or v_col.lower() == item_color.lower()) and \
+                       (not item_size or v_sz.upper() == item_size.upper()):
+                        var_stock = v.get("stock", 0)
+                        if var_stock <= 0:
+                            raise HTTPException(
+                                status_code=400,
+                                detail=f"Sản phẩm '{item.get('name')}' (màu {item_color}, size {item_size}) hiện đã hết hàng."
+                            )
+                        if item["quantity"] > var_stock:
+                            raise HTTPException(
+                                status_code=400,
+                                detail=f"Sản phẩm '{item.get('name')}' (màu {item_color}, size {item_size}) chỉ còn {var_stock} sản phẩm trong kho (bạn đặt {item['quantity']})."
+                            )
+                        break
+
         subtotal = cart["subtotal"]
         discount, promo_code = await OrderService._resolve_promotion(payload.promotion_code, subtotal)
         shipping_fee = 30000 if subtotal - discount < 500000 else 0
@@ -217,9 +253,30 @@ class OrderService:
         # Trừ tồn kho sau khi đặt hàng thành công
         for item in cart["items"]:
             try:
+                prod_oid = to_object_id(item["product_id"])
+                qty = int(item["quantity"])
+                item_color = (item.get("color") or "").strip()
+                item_size = (item.get("size") or "").strip()
+
+                # 1. Trừ tồn kho biến thể tương ứng nếu sản phẩm có biến thể
+                if item_color and item_size:
+                    await db.products.update_one(
+                        {
+                            "_id": prod_oid,
+                            "variants": {
+                                "$elemMatch": {
+                                    "color": {"$regex": f"^{item_color}$", "$options": "i"},
+                                    "size": {"$regex": f"^{item_size}$", "$options": "i"}
+                                }
+                            }
+                        },
+                        {"$inc": {"variants.$.stock": -qty}}
+                    )
+
+                # 2. Trừ tổng tồn kho sản phẩm
                 await db.products.update_one(
-                    {"_id": to_object_id(item["product_id"])},
-                    {"$inc": {"stock": -item["quantity"]}}
+                    {"_id": prod_oid},
+                    {"$inc": {"stock": -qty}}
                 )
             except Exception:
                 pass
