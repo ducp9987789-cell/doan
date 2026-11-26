@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Optional
 
@@ -8,10 +9,10 @@ from llm.base import LLMProvider
 from memory.chat_memory import ChatMemory
 from memory.redis_memory import RedisChatSessionStore
 from prompts.shopping import (
-    SYSTEM_PROMPT,
     build_shopping_prompt,
     fallback_answer,
     get_system_prompt,
+    is_shopping_intent,
 )
 from tool.knowledge_retriever import KnowledgeRetrieverTool
 from tool.product_search import ProductSearchTool
@@ -47,9 +48,25 @@ class ShoppingAgent(BaseAgent):
         memory: ChatMemory = await self.session_store.get(session_key)
         memory.add_user(message)
 
-        contexts = await self.retriever.run(query=message, n_results=5)
-        # Nạp prompt và system prompt động từ file text theo role (admin / user / public)
-        prompt = build_shopping_prompt(message, contexts, history_text=memory.as_text(), role=role)
+        shopping = is_shopping_intent(message)
+
+        # Qdrant (RAG) + MongoDB (product cards) chạy song song khi có ý định mua sắm
+        if shopping:
+            contexts, suggested = await asyncio.gather(
+                self.retriever.run(query=message, n_results=5),
+                self.product_search.run(query=message, limit=3),
+            )
+        else:
+            contexts = await self.retriever.run(query=message, n_results=5)
+            suggested = []
+
+        prompt = build_shopping_prompt(
+            message,
+            contexts,
+            history_text=memory.as_text(),
+            role=role,
+            suggested_products=suggested,
+        )
         system_prompt = get_system_prompt(role)
 
         try:
@@ -61,7 +78,6 @@ class ShoppingAgent(BaseAgent):
         if not answer.strip():
             answer = fallback_answer(message, contexts)
 
-        suggested = await self.product_search.run(query=message, limit=3)
         memory.add_assistant(answer)
         await self.session_store.save(memory)
 
@@ -80,6 +96,7 @@ class ShoppingAgent(BaseAgent):
             metadata={
                 "session_id": session_key,
                 "context_count": len(contexts),
+                "shopping_intent": shopping,
                 "vector_backend": "qdrant",
                 "session_backend": "redis" if self.session_store.redis is not None else "memory",
             },

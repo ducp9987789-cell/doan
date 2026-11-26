@@ -69,16 +69,105 @@ def get_system_prompt(role: Optional[str] = None) -> str:
 SYSTEM_PROMPT = get_system_prompt("public")
 
 
+def format_suggested_products(products: Optional[list[dict[str, Any]]] = None) -> str:
+    """Chuỗi mô tả 3 sản phẩm đang hiển thị dưới chatbot để AI tư vấn khớp 100%."""
+    if not products:
+        return ""
+    lines: list[str] = []
+    for idx, product in enumerate(products, 1):
+        price = product.get("sale_price") or product.get("price")
+        lines.append(
+            f"{idx}. {product.get('name', 'Sản phẩm')} — giá {price}đ"
+            f" (id: {product.get('id', '')})"
+        )
+    return (
+        "=== SẢN PHẨM ĐANG HIỂN THỊ CHO KHÁCH (bắt buộc tư vấn đúng danh sách này) ===\n"
+        + "\n".join(lines)
+        + "\nChỉ gợi ý/tư vấn đúng các sản phẩm trên, khớp tên và giá 100% với thẻ sản phẩm bên dưới.\n\n"
+    )
+
+
+def is_shopping_intent(message: str) -> bool:
+    """True khi câu hỏi mang ý định tìm/mua/gợi ý sản phẩm thời trang."""
+    text = (message or "").strip().lower()
+    if len(text) < 2:
+        return False
+
+    policy_keywords = (
+        "chính sách",
+        "đổi trả",
+        "hoàn tiền",
+        "giao hàng",
+        "vận chuyển",
+        "phí ship",
+        "freeship",
+        "địa chỉ",
+        "hotline",
+        "giờ mở",
+        "liên hệ",
+        "bảo hành",
+        "thanh toán",
+    )
+    product_keywords = (
+        "áo",
+        "quần",
+        "váy",
+        "đầm",
+        "giày",
+        "dép",
+        "túi",
+        "phụ kiện",
+        "khoác",
+        "sơ mi",
+        "thun",
+        "polo",
+        "jean",
+        "denim",
+        "blazer",
+        "hoodie",
+        "size",
+        "màu",
+        "giá",
+        "mua",
+        "gợi ý",
+        "tư vấn",
+        "phối đồ",
+        "mix",
+        "match",
+        "sản phẩm",
+        "hàng",
+        "mẫu",
+        "outfit",
+        "set đồ",
+    )
+    greeting_only = {
+        "xin chào",
+        "chào",
+        "hello",
+        "hi",
+        "hey",
+        "chào bạn",
+        "alo",
+    }
+
+    if text in greeting_only:
+        return False
+
+    has_product = any(keyword in text for keyword in product_keywords)
+    has_policy = any(keyword in text for keyword in policy_keywords)
+    if has_policy and not has_product:
+        return False
+    return has_product
+
+
 def build_shopping_prompt(
     question: str,
     contexts: list[dict[str, Any]],
     history_text: str = "",
     role: Optional[str] = None,
+    suggested_products: Optional[list[dict[str, Any]]] = None,
 ) -> str:
-    """Xây dựng prompt câu hỏi kết hợp kho tri thức (RAG) nạp từ file
-
-    rag_prompt.txt.
-    """
+    """Xây dựng prompt câu hỏi kết hợp kho tri thức (RAG) + sản phẩm gợi ý."""
     context_text = "\n\n".join(
         f"[Nguồn {idx + 1}] {item.get('text', '')}"
         for idx, item in enumerate(contexts)
@@ -89,6 +178,7 @@ def build_shopping_prompt(
         if history_text
         else ""
     )
+    suggested_block = format_suggested_products(suggested_products)
 
     template = load_prompt_file("rag_prompt.txt")
     if template and "{context}" in template and "{question}" in template:
@@ -96,6 +186,7 @@ def build_shopping_prompt(
             return template.format(
                 history_block=history_block,
                 context=context_text,
+                suggested_block=suggested_block,
                 question=question,
             )
         except Exception as exc:
@@ -109,6 +200,7 @@ def build_shopping_prompt(
         "Hãy trả lời bằng tiếng Việt, thân thiện và hữu ích.\n\n"
         f"{history_block}"
         f"=== THÔNG TIN THỰC TẾ TỪ CỬA HÀNG ===\n{context_text}\n\n"
+        f"{suggested_block}"
         f"=== CÂU HỎI CỦA KHÁCH HÀNG ===\n{question}\n\n"
         "Trả lời:"
     )
