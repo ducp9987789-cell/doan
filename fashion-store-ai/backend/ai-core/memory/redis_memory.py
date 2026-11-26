@@ -4,13 +4,13 @@ import json
 import logging
 from typing import Any, Optional
 
-from memory.chat_memory import ChatMemory, ChatTurn
+from memory.chat_memory import ChatMemory
 
 logger = logging.getLogger(__name__)
 
 
 class RedisChatSessionStore:
-    """Persist chat turns in Redis with TTL; fall back to in-process memory."""
+    """Persist layered chat memory in Redis with TTL; fall back to in-process memory."""
 
     KEY_PREFIX = "chat:session:"
 
@@ -32,12 +32,7 @@ class RedisChatSessionStore:
                 raw = await self.redis.get(self._key(session_id))
                 if raw:
                     data = json.loads(raw)
-                    turns = [ChatTurn(role=t["role"], content=t["content"]) for t in data.get("turns", [])]
-                    return ChatMemory(
-                        session_id=session_id,
-                        turns=turns,
-                        metadata=data.get("metadata") or {},
-                    )
+                    return ChatMemory.from_dict(session_id, data)
             except Exception as exc:  # noqa: BLE001
                 logger.warning("Redis session read failed (%s); using memory fallback.", exc)
 
@@ -49,10 +44,7 @@ class RedisChatSessionStore:
         self._local[memory.session_id] = memory
         if self.redis is None:
             return
-        payload = {
-            "turns": [{"role": t.role, "content": t.content} for t in memory.turns],
-            "metadata": memory.metadata,
-        }
+        payload = memory.to_dict()
         try:
             await self.redis.set(
                 self._key(memory.session_id),

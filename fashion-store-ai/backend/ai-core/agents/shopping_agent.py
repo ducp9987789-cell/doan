@@ -60,10 +60,19 @@ class ShoppingAgent(BaseAgent):
             contexts = await self.retriever.run(query=message, n_results=5)
             suggested = []
 
+        memory.add_system(
+            f"retriever={len(contexts)}; suggested={len(suggested)}; shopping={shopping}",
+            event="tools",
+            metadata={"shopping_intent": shopping},
+        )
+
+        # WORKING + SEMANTIC/LONG_TERM/EPISODIC liên quan — không nhồi SYSTEM vào LLM
+        history_text = memory.as_prompt_context(message)
+
         prompt = build_shopping_prompt(
             message,
             contexts,
-            history_text=memory.as_text(),
+            history_text=history_text,
             role=role,
             suggested_products=suggested,
         )
@@ -73,6 +82,7 @@ class ShoppingAgent(BaseAgent):
             answer = await self.llm.generate(prompt, system=system_prompt, temperature=0.4)
         except Exception as exc:  # noqa: BLE001
             logger.warning("LLM generation failed: %s", exc)
+            memory.add_system(str(exc), event="llm_error")
             answer = ""
 
         if not answer.strip():
@@ -97,6 +107,13 @@ class ShoppingAgent(BaseAgent):
                 "session_id": session_key,
                 "context_count": len(contexts),
                 "shopping_intent": shopping,
+                "memory": {
+                    "working": len(memory.working),
+                    "episodic": len(memory.episodic),
+                    "semantic": len(memory.semantic),
+                    "long_term": len(memory.long_term),
+                    "system": len(memory.system),
+                },
                 "vector_backend": "qdrant",
                 "session_backend": "redis" if self.session_store.redis is not None else "memory",
             },

@@ -174,7 +174,7 @@ def build_shopping_prompt(
     ) or "Không tìm thấy thêm thông tin bổ sung trong cửa hàng."
 
     history_block = (
-        f"=== LỊCH SỬ TRÒ CHUYỆN GẦN ĐÂY ===\n{history_text}\n\n"
+        f"=== BỘ NHỚ HỘI THOẠI (WORKING / EPISODIC / SEMANTIC / LONG_TERM) ===\n{history_text}\n\n"
         if history_text
         else ""
     )
