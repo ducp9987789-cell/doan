@@ -1,13 +1,31 @@
 from .shopping import (
     SYSTEM_PROMPT,
+    ComplexityMode,
+    ToolDecision,
+    ToolMode,
+    build_mcp_prompt,
+    build_rag_prompt,
     build_shopping_prompt,
+    classify_complexity_rules,
+    detect_message_complexity,
+    detect_tool_mode,
     fallback_answer,
     is_shopping_intent,
+    simple_fallback_answer,
 )
 
 __all__ = [
     "SYSTEM_PROMPT",
+    "ComplexityMode",
+    "ToolDecision",
+    "ToolMode",
+    "build_mcp_prompt",
+    "build_rag_prompt",
     "build_shopping_prompt",
+    "classify_complexity_rules",
+    "detect_message_complexity",
+    "detect_tool_mode",
     "fallback_answer",
     "is_shopping_intent",
+    "simple_fallback_answer",
 ]

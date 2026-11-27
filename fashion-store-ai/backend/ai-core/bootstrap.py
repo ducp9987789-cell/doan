@@ -7,12 +7,12 @@ from llm.embeddings import get_embedding_provider
 from llm.factory import get_llm_provider
 from memory.redis_memory import RedisChatSessionStore, RedisRAGCache
 from memory.vector_store import VectorStore, init_vector_store
-from tool.knowledge_indexer import KnowledgeIndexerTool
-from tool.knowledge_retriever import KnowledgeRetrieverTool
-from tool.product_search import ProductSearchTool
+from tool.mcp import FashionMcpServer
+from tool.rag import KnowledgeIndexerTool, KnowledgeRetrieverTool
 
 _agent: Optional[ShoppingAgent] = None
 _indexer: Optional[KnowledgeIndexerTool] = None
+_mcp: Optional[FashionMcpServer] = None
 _vector_store: Optional[VectorStore] = None
 _session_store: Optional[RedisChatSessionStore] = None
 _rag_cache: Optional[RedisRAGCache] = None
@@ -38,7 +38,7 @@ def bootstrap_ai_core(
     chroma_persist_dir: str = "",
 ) -> ShoppingAgent:
     """Initialize AI-core components used by the FastAPI app."""
-    global _agent, _indexer, _vector_store, _session_store, _rag_cache
+    global _agent, _indexer, _mcp, _vector_store, _session_store, _rag_cache
     _ = chroma_persist_dir  # retained for older call sites
 
     embeddings = get_embedding_provider(
@@ -64,13 +64,14 @@ def bootstrap_ai_core(
     _rag_cache = RedisRAGCache(redis_client, ttl_seconds=redis_rag_cache_ttl_seconds)
     _session_store = RedisChatSessionStore(redis_client, ttl_seconds=redis_session_ttl_seconds)
 
+    # RAG tools (vector) + MCP tools (structured MongoDB actions)
     retriever = KnowledgeRetrieverTool(_vector_store, rag_cache=_rag_cache)
-    product_search = ProductSearchTool(db_getter)
     _indexer = KnowledgeIndexerTool(_vector_store, document_loader, rag_cache=_rag_cache)
+    _mcp = FashionMcpServer(db_getter)
     _agent = ShoppingAgent(
         llm=llm,
         retriever=retriever,
-        product_search=product_search,
+        mcp=_mcp,
         session_store=_session_store,
     )
     return _agent
@@ -95,6 +96,12 @@ def get_knowledge_indexer() -> KnowledgeIndexerTool:
     if _indexer is None:
         raise RuntimeError("AI-core is not bootstrapped")
     return _indexer
+
+
+def get_mcp_server() -> FashionMcpServer:
+    if _mcp is None:
+        raise RuntimeError("AI-core is not bootstrapped")
+    return _mcp
 
 
 def get_vector_store_instance() -> VectorStore:

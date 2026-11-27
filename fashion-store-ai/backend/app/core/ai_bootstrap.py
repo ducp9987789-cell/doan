@@ -20,7 +20,7 @@ def init_ai_core() -> None:
     from app.core.config import get_settings
     from app.db.mongodb import get_database
     from bootstrap import bootstrap_ai_core
-    from tool.document_loader import build_knowledge_documents
+    from tool.rag import build_knowledge_documents
 
     settings = get_settings()
 
